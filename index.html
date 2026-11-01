@@ -234,6 +234,7 @@ input[type=text]{width:100%;font-family:var(--body);font-weight:700;font-size:16
           <li>После итогов в меню появится кнопка «Твой приз сезона». Открывай игру на том же телефоне и в том же браузере, где играл.</li>
           <li>Приходи в HOMMES в течение 15 дней после итогов и покажи экран с призом администратору.</li>
           <li>Администратор отметит приз как полученный. Скидка — на одну стрижку.</li>
+          <li>При равных очках выше тот, кто пробежал больше метров. Если и метры равны — тот, кто набрал результат раньше.</li>
         </ol>
         <p class="warn"><b>Важно.</b> Игра запоминает тебя на этом телефоне. Играй и приходи за призом с того же телефона и того же браузера. Если сменишь телефон или браузер или очистишь историю, игра тебя не узнает и приз не покажет. Скриншот приза не принимается.</p>
       </details>
@@ -1683,6 +1684,8 @@ function daysWord(n){const a=n%10,b=n%100;return a===1&&b!==11?"день":a>=2&&
 function seasonText(){const S=seasonNow(),left=seasonEnds(S)-Date.now();
   if(left<864e5){const h=Math.max(1,Math.ceil(left/36e5));return "СЕЗОН "+S+" · ПОДВЕДЕНИЕ ИТОГОВ ЧЕРЕЗ "+h+" Ч"}
   const d=Math.ceil(left/864e5);return "СЕЗОН "+S+" · ПОДВЕДЕНИЕ ИТОГОВ ЧЕРЕЗ "+d+" "+daysWord(d).toUpperCase()+" ("+fmtDate(seasonEnds(S))+")"}
+// порядок в таблице: больше очков; при равенстве — больше метров; дальше — кто раньше набрал
+function rankCmp(x,y){return (y.score-x.score)||(y.m-x.m)||((x.at||9e15)-(y.at||9e15))||String(x.id).localeCompare(String(y.id))}
 async function submitScore(s){
   const line=$("rankLine");
   if(!db||!myId)return;
@@ -1694,12 +1697,12 @@ async function submitScore(s){
     if(s.sc>prev){
       const rec={name:(ch.name||"БАРБЕР").slice(0,16),score:s.sc,meters:s.m,coins:s.nCoin,cash:s.nCash,gender:curGender(),at:Date.now(),season:S};
       if(old&&old.claimSeason){rec.claimSeason=old.claimSeason;rec.claimAt=old.claimAt||0}
-      if(old&&!same&&Number(old.season)>0){rec.prevSeason=Number(old.season);rec.prevScore=Number(old.score)||0;rec.prevName=String(old.name||"БАРБЕР").slice(0,16);rec.prevMeters=Number(old.meters)||0}
-      else if(old&&same&&old.prevSeason){rec.prevSeason=old.prevSeason;rec.prevScore=old.prevScore;rec.prevName=old.prevName;rec.prevMeters=old.prevMeters||0}
+      if(old&&!same&&Number(old.season)>0){rec.prevSeason=Number(old.season);rec.prevScore=Number(old.score)||0;rec.prevName=String(old.name||"БАРБЕР").slice(0,16);rec.prevMeters=Number(old.meters)||0;rec.prevAt=Number(old.at)||0}
+      else if(old&&same&&old.prevSeason){rec.prevSeason=old.prevSeason;rec.prevScore=old.prevScore;rec.prevName=old.prevName;rec.prevMeters=old.prevMeters||0;rec.prevAt=old.prevAt||0}
       await Promise.race([ref.set(rec),new Promise((_,rj)=>setTimeout(()=>rj({code:"timeout"}),12000))]);
     }
     const q=await db.collection("scores").where("season","==",S).limit(300).get();
-    const docs=q.docs.slice().sort((x,y)=>(Number(y.data().score)||0)-(Number(x.data().score)||0));
+    const docs=q.docs.map(d=>{const v=d.data()||{};return{id:d.id,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0}}).sort(rankCmp);
     const idx=docs.findIndex(d=>d.id===myId);
     if(idx>=0)line.innerHTML=(s.sc>prev?"Новый лучший результат сезона "+S+": ":"Твоё место в сезоне "+S+": ")+"<b>#"+(idx+1)+"</b> из "+docs.length;
   }catch(e){
@@ -1731,7 +1734,7 @@ function openLeaders(tab){
   if(lbTab==="cur"){
     lbUnsub=db.collection("scores").where("season","==",S).limit(300).onSnapshot(snap=>{
       clearTimeout(lbTimer);
-      const rows=snap.docs.map(d=>{const v=d.data()||{};return{id:d.id,name:v.name,score:Number(v.score)||0,sub:(Number(v.meters)||0)+" м · "+(Number(v.coins)||0)+" монет · "+(Number(v.cash)||0)+" пачек"}}).sort((x,y)=>y.score-x.score);
+      const rows=snap.docs.map(d=>{const v=d.data()||{};return{id:d.id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0,sub:(Number(v.meters)||0)+" м · "+(Number(v.coins)||0)+" монет · "+(Number(v.cash)||0)+" пачек"}}).sort(rankCmp);
       renderBoard(rows);
       if(!rows.length&&snap.metadata&&snap.metadata.fromCache){note.textContent="Подключаюсь к таблице…";return}
       note.textContent=rows.length?"Лучший результат каждого игрока в этом сезоне.":"Сезон только начался. Сыграй первым, и твоё имя будет здесь.";
@@ -1755,9 +1758,9 @@ async function pastRows(P){
   const col=db.collection("scores");
   const [a,b]=await Promise.all([col.where("season","==",P).limit(300).get(),col.where("prevSeason","==",P).limit(300).get()]);
   const m=new Map();
-  a.docs.forEach(d=>{const v=d.data()||{};m.set(d.id,{id:d.id,name:v.name,score:Number(v.score)||0,sub:(Number(v.meters)||0)+" м"})});
-  b.docs.forEach(d=>{const v=d.data()||{};if(!m.has(d.id))m.set(d.id,{id:d.id,name:v.prevName,score:Number(v.prevScore)||0,sub:(Number(v.prevMeters)||0)+" м"})});
-  return [...m.values()].sort((x,y)=>y.score-x.score||x.id.localeCompare(y.id));
+  a.docs.forEach(d=>{const v=d.data()||{};m.set(d.id,{id:d.id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0,sub:(Number(v.meters)||0)+" м"})});
+  b.docs.forEach(d=>{const v=d.data()||{};if(!m.has(d.id))m.set(d.id,{id:d.id,name:v.prevName,score:Number(v.prevScore)||0,m:Number(v.prevMeters)||0,at:Number(v.prevAt)||0,sub:(Number(v.prevMeters)||0)+" м"})});
+  return [...m.values()].sort(rankCmp);
 }
 async function myPrize(rows){
   if(!db||!myId)return null;
