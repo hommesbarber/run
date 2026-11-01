@@ -548,7 +548,7 @@ function drawBonus(c,type,x,y,R,glow){
 const cv=$("game"),ctx=cv.getContext("2d");
 let W=0,H=0,DPR=1,K=1,VW=0,VT=0,VB=0;
 const GY=470,WB=402;
-const Q={dpr:2,lvl:0,fx:true};let CACHE_GEN=0;
+const Q={dpr:Math.min(3,window.devicePixelRatio||1),lvl:0,fx:true};let CACHE_GEN=0;
 function resize(){
   DPR=Math.min(window.devicePixelRatio||1,Q.dpr);
   W=cv.clientWidth;H=cv.clientHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
@@ -1658,8 +1658,11 @@ let last=performance.now();
 let fAcc=0,fN=0;
 function loop(now){
   const raw=(now-last)/1000,dt=Math.min(.033,raw);last=now;
-  if(state==="play"&&raw<.25){fAcc+=raw;fN++;if(fN>=90){const avg=fAcc/fN;fAcc=0;fN=0;if(avg>.021&&Q.lvl<2){Q.lvl++;Q.dpr=Q.lvl===1?1.5:1;Q.fx=Q.lvl<2;resize()}}}
-  if(shake>0)shake-=dt;update(dt);render();requestAnimationFrame(loop);
+  // качество снижаем по реальному времени отрисовки кадра, а не по частоте кадров:
+  // в режиме энергосбережения iPhone ограничивает 30 к/с, и картинка не должна от этого мыльнеть
+  if(shake>0)shake-=dt;const w0=performance.now();update(dt);render();const work=performance.now()-w0;
+  if(state==="play"&&raw<.25){fAcc+=work;fN++;if(fN>=120){const avg=fAcc/fN;fAcc=0;fN=0;if(avg>14&&Q.lvl<2){Q.lvl++;Q.dpr=Q.lvl===1?Math.min(2,Math.max(1.5,(window.devicePixelRatio||1)*.75)):1.25;Q.fx=Q.lvl<2;resize()}}}
+  requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 
