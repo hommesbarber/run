@@ -144,6 +144,14 @@ input[type=text]{width:100%;font-family:var(--body);font-weight:700;font-size:16
   #menu .stat{padding-top:9px}
   #menu .btns .btn{padding:13px 10px}
 }
+.howto{border:1.5px solid var(--cobalt);padding:0}
+.howto summary{cursor:pointer;list-style:none;padding:12px 14px;font-family:var(--display);font-weight:800;font-size:13px;letter-spacing:.06em;color:var(--cobalt);display:flex;justify-content:space-between;align-items:center}
+.howto summary::-webkit-details-marker{display:none}
+.howto summary::after{content:"+";font-size:18px;line-height:1}
+.howto[open] summary::after{content:"−"}
+.howto .warn{margin:0 14px 14px;padding:10px 12px;background:#eef0fb;font-size:13px;line-height:1.45;color:#1f2a5a}
+.howto .warn b{color:var(--cobalt)}
+.howto ol{margin:0;padding:0 14px 14px 32px;display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:1.45;color:#3b3a38}
 .season{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--signal);margin:-4px 0 8px}
 .board li.me .nm::after{content:" · ТЫ";color:var(--signal);font-size:10px;letter-spacing:.14em}
 .combo{display:flex;flex-direction:column;gap:4px;align-self:flex-start;background:#fff;border:1.5px solid var(--ink);padding:4px 8px 6px;text-shadow:none;transition:box-shadow .2s}
@@ -220,6 +228,15 @@ input[type=text]{width:100%;font-family:var(--body);font-weight:700;font-size:16
       <div class="prize" id="prizeBox" hidden></div>
       <p class="note" id="boardNote">Загружаю таблицу…</p>
       <ol class="board" id="board"></ol>
+      <details class="howto" id="howto"><summary>КАК ПОЛУЧИТЬ ПРИЗ</summary>
+        <ol>
+          <li>Каждые 20 дней подводим итоги. Топ-5 сезона получают скидку на стрижку: 1 место — −100%, 2–3 — −50%, 4–5 — −20%.</li>
+          <li>После итогов в меню появится кнопка «Твой приз сезона». Открывай игру на том же телефоне и в том же браузере, где играл.</li>
+          <li>Приходи в HOMMES в течение 15 дней после итогов и покажи экран с призом администратору.</li>
+          <li>Администратор отметит приз как полученный. Скидка — на одну стрижку.</li>
+        </ol>
+        <p class="warn"><b>Важно.</b> Игра запоминает тебя на этом телефоне. Играй и приходи за призом с того же телефона и того же браузера. Если сменишь телефон или браузер или очистишь историю, игра тебя не узнает и приз не покажет. Скриншот приза не принимается.</p>
+      </details>
       <div class="btns"><button class="btn" id="leadBack">НАЗАД</button></div>
     </div>
   </div>
@@ -1799,7 +1816,8 @@ $("tabOwn").onclick=()=>{editMode="own";buildEditor()};$("tabHero").onclick=()=>
 $("leadBtn").onclick=()=>{backTo="menu";openLeaders("cur")};
 $("overLead").onclick=()=>{backTo="over";openLeaders("cur")};
 $("leadBack").onclick=()=>{show(backTo)};
-$("promoBtn").onclick=()=>{backTo="menu";openLeaders("cur")};
+$("promoBtn").onclick=()=>{backTo="menu";openLeaders("cur");$("howto").open=true};
+$("leadBtn").addEventListener("click",()=>{$("howto").open=false});$("overLead").addEventListener("click",()=>{$("howto").open=false});
 $("prizeBtn").onclick=()=>{backTo="menu";openLeaders("prev")};
 $("tabCur").onclick=()=>openLeaders("cur");$("tabPrev").onclick=()=>openLeaders("prev");
 $("storyBtn").onclick=openStory;$("storyBack").onclick=()=>show("over");
