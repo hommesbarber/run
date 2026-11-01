@@ -1221,7 +1221,7 @@ let runT=0,finale=-1,coinRainT=0,nmLast=-9,nNear=0;
 function reset(){
   runT=0;finale=-1;coinRainT=0;nmLast=-9;nNear=0;
   pl={x:120,y:0,vy:0,jumps:0,ph:0,slide:0,sq:0,wasAir:false,queueSlide:false,lastFs:0};
-  obs=[];items=[];parts=[];pops=[];speed=520;camX=0;meters=0;pts=0;nCoin=0;nCash=0;spawnDist=520;bonusT=7;shake=0;
+  obs=[];items=[];parts=[];pops=[];speed=500;camX=0;meters=0;pts=0;nCoin=0;nCash=0;spawnDist=520;bonusT=7;shake=0;
   pw={turbo:0,magnet:0,x2:0,shield:false};inv=0;ENV=envAt(0);
   combo=0;hitstop=0;zp=0;jumpBuf=0;lastJumpAt=-9;evt=null;evtNext=null;evtBag=["dark"].concat(shuffle(["rush","chef","dark"]));darkA=0;lastRampQ=0;
 }
@@ -1345,7 +1345,7 @@ function update(dt){
   if(state!=="play"){idleX+=60*dt;pl.ph+=dt*6;pl.sq=Math.max(0,pl.sq-dt*5);for(const o of obs)if(o.dead){o.x+=o.vx*dt;o.vy+=1800*dt;o.dy+=o.vy*dt;o.rot+=o.vr*dt;o.life-=dt*.8}return}
   if(hitstop>0){hitstop-=dt;return}
   runT+=dt;
-  speed=Math.min(1250,speed+dt*(18+ENV.i*4));
+  speed=Math.min(1200,speed+dt*([12,9,8,7,6][ENV.i]||6));
   const v=spd();camX+=v*dt;meters=camX/50;
   const e=envAt(runT);
   if(e.i!==ENV.i){const was=ENV.i;showBanner(e.i);if(e.i>was){closeShift(was);$("bannerK").textContent="СМЕНА "+(was+1)+" ЗАКРЫТА · +100"}zp=1;planEvent(e.i)}
@@ -1382,7 +1382,7 @@ function update(dt){
   const box=pl.slide>0?{x:pl.x-38,y:GY+pl.y-52,w:54,h:48}:{x:pl.x-12,y:GY+pl.y-118,w:28,h:112};
   for(const o of obs){
     if(o.dead){o.x+=(o.vx-v)*dt;o.vy+=1800*dt;o.dy+=o.vy*dt;o.rot+=o.vr*dt;o.life-=dt*.8;continue}
-    const extra=o.k==="late"?340:o.k==="client"?75:o.k==="dryer"?95:o.k==="vacuum"?120:0;
+    const extra=o.k==="late"?260:o.k==="client"?75:o.k==="dryer"?95:o.k==="vacuum"?120:0;
     o.x-=(v+extra)*dt;o.t+=dt;o.ph+=dt*(o.k==="late"?20:9);
     if(hitAny(box,o)){
       if(pl.slide>0&&o.k==="client"&&!o.crowd){knock(o);sfx.smash();shake=Math.max(shake,.12);const g=10*(pw.x2>0?2:1);pts+=g;popText(o.x+o.w/2,GY-150,"ПОДКАТ! +"+g,"#e1362a");continue}
