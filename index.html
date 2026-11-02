@@ -152,6 +152,21 @@ input[type=text]{width:100%;font-family:var(--body);font-weight:700;font-size:16
 .howto .warn{margin:0 14px 14px;padding:10px 12px;background:#eef0fb;font-size:13px;line-height:1.45;color:#1f2a5a}
 .howto .warn b{color:var(--cobalt)}
 .howto ol{margin:0;padding:0 14px 14px 32px;display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:1.45;color:#3b3a38}
+.prize .pcode{margin-top:10px;padding:9px 10px;border:1.5px dashed var(--ink);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.prize .pcode span{font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--grey)}
+.prize .pcode b{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.12em}
+.prize .pnote{margin:6px 0 0;font-size:12px;color:#3b3a38}
+.adm{display:flex;flex-direction:column;gap:10px}
+.adm .btn{flex:none}
+.adm label{font-size:10px;font-weight:800;letter-spacing:.18em;color:var(--grey)}
+.adm input{width:100%;box-sizing:border-box;font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.2em;padding:10px 12px;border:1.5px solid var(--ink);text-align:center;text-transform:uppercase}
+.adm .res{border:2px solid var(--ink);padding:12px 14px}
+.adm .res.ok{border-color:var(--cobalt)}
+.adm .res .t{font-family:var(--display);font-weight:800;font-size:20px;margin:4px 0}
+.adm .res p{margin:0;font-size:13px;line-height:1.45;color:#3b3a38}
+.adm .err{margin:0;font-size:13px;font-weight:800;color:var(--signal)}
+.mustnote{margin:-6px 0 0;padding:10px 12px;background:#eef0fb;border-left:3px solid var(--cobalt);font-size:13px;line-height:1.45;color:#1f2a5a}
+.nameerr{margin:6px 0 0;font-size:12px;font-weight:800;color:var(--signal)}
 .season{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--signal);margin:-4px 0 8px}
 .board li.me .nm::after{content:" · ТЫ";color:var(--signal);font-size:10px;letter-spacing:.14em}
 .combo{display:flex;flex-direction:column;gap:4px;align-self:flex-start;background:#fff;border:1.5px solid var(--ink);padding:4px 8px 6px;text-shadow:none;transition:box-shadow .2s}
@@ -210,6 +225,7 @@ input[type=text]{width:100%;font-family:var(--body);font-weight:700;font-size:16
     <div class="card">
       <div class="brand"><svg viewBox="0 0 80 100" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M0 0H80V100H0Z M22 0V28A18 18 0 0 0 58 28V0Z M22 100V72A18 18 0 0 1 58 72V100Z"/></svg>HOMMES<small>ПЕРСОНАЖ</small></div>
       <h2 id="editTitle">Создай своего барбера</h2>
+      <p class="mustnote" id="editMust" hidden>Перед первым забегом выбери персонажа и впиши своё имя — под ним ты попадёшь в таблицу лидеров.</p>
       <div class="tabs" role="group" aria-label="Тип персонажа"><button type="button" id="tabOwn" aria-pressed="true">СВОЙ БАРБЕР</button><button type="button" id="tabHero" aria-pressed="false">ГЕРОИ HOMMES</button></div>
       <div class="editor">
         <canvas id="preview" width="280" height="400"></canvas>
@@ -232,11 +248,11 @@ input[type=text]{width:100%;font-family:var(--body);font-weight:700;font-size:16
         <ol>
           <li>Каждые 20 дней подводим итоги. Топ-5 сезона получают скидку на стрижку: 1 место — −100%, 2–3 — −50%, 4–5 — −20%.</li>
           <li>После итогов в меню появится кнопка «Твой приз сезона». Открывай игру на том же телефоне и в том же браузере, где играл.</li>
-          <li>Приходи в HOMMES в течение 15 дней после итогов и покажи экран с призом администратору.</li>
+          <li>Приходи в HOMMES в течение 15 дней после итогов и покажи экран с призом администратору. Играешь на компьютере — запиши код приза с карточки и назови его на стойке.</li>
           <li>Администратор отметит приз как полученный. Скидка — на одну стрижку.</li>
           <li>При равных очках выше тот, кто пробежал больше метров. Если и метры равны — тот, кто набрал результат раньше.</li>
         </ol>
-        <p class="warn"><b>Важно.</b> Игра запоминает тебя на этом телефоне. Играй и приходи за призом с того же телефона и того же браузера. Если сменишь телефон или браузер или очистишь историю, игра тебя не узнает и приз не покажет. Скриншот приза не принимается.</p>
+        <p class="warn"><b>Важно.</b> Игра запоминает тебя на этом телефоне. Карточка приза и код появятся только на том устройстве и в том браузере, где ты играл. Если сменишь телефон или браузер или очистишь историю, игра тебя не узнает и приз не покажет. Скриншот без кода не принимается.</p>
       </details>
       <div class="btns"><button class="btn" id="leadBack">НАЗАД</button></div>
     </div>
@@ -269,6 +285,14 @@ input[type=text]{width:100%;font-family:var(--body);font-weight:700;font-size:16
       <h2>Карточка для сторис</h2>
       <div class="story"><img id="storyImg" alt="Карточка с результатом забега"><p class="hint" id="storyHint">Сохрани картинку и выложи в сторис.</p></div>
       <div class="btns"><button class="btn" id="storyDl">СКАЧАТЬ</button><button class="btn alt" id="storyBack">НАЗАД</button></div>
+    </div>
+  </div>
+  <div class="overlay" id="admin" hidden>
+    <div class="card">
+      <div class="brand"><svg viewBox="0 0 80 100" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M0 0H80V100H0Z M22 0V28A18 18 0 0 0 58 28V0Z M22 100V72A18 18 0 0 1 58 72V100Z"/></svg>HOMMES<small>АДМИНИСТРАТОР</small></div>
+      <h2>Выдача призов</h2>
+      <div id="adminBody" class="adm"></div>
+      <div class="btns"><button class="btn alt" id="adminBack">НАЗАД</button></div>
     </div>
   </div>
   <div class="toggles"><button id="musicBtn" aria-pressed="true">МУЗЫКА</button><button id="sfxBtn" aria-pressed="true">ЗВУК</button></div>
@@ -1675,8 +1699,8 @@ const dbReady=(async()=>{try{
   const cred=await firebase.auth().signInAnonymously();myId=cred&&cred.user?cred.user.uid:null;
   if(myId){db=firebase.firestore();try{db.settings({experimentalForceLongPolling:true,merge:true})}catch(e){}}
 }catch(e){db=null;myId=null}})();
-/* сезоны: 20 дней от 1 ноября 2026, 00:00 по Екатеринбургу (UTC+5) */
-const SEASON_START=Date.UTC(2026,9,31,19,0,0),SEASON_LEN=20*864e5;
+/* сезоны: 20 дней от 3 ноября 2026, 00:00 по Екатеринбургу (UTC+5) */
+const SEASON_START=Date.UTC(2026,10,2,19,0,0),SEASON_LEN=20*864e5;
 function seasonNow(){return Math.max(1,Math.floor((Date.now()-SEASON_START)/SEASON_LEN)+1)}
 function seasonEnds(n){return SEASON_START+(n||seasonNow())*SEASON_LEN}
 function fmtDate(t){const d=new Date(t+5*36e5);return String(d.getUTCDate()).padStart(2,"0")+"."+String(d.getUTCMonth()+1).padStart(2,"0")}
@@ -1752,7 +1776,7 @@ function openLeaders(tab){
 }
 /* призы сезона: топ-5, забрать в течение 15 дней после конца сезона, гасит администратор по ПИНу */
 const PRIZES=["СТРИЖКА БЕСПЛАТНО","−50% НА СТРИЖКУ","−50% НА СТРИЖКУ","−20% НА СТРИЖКУ","−20% НА СТРИЖКУ"],CLAIM_DAYS=15;
-const PIN_HASH="f09e0b11c4b027b2ea1acbffb7486ee404078d346b928d407a4ffdb55d0d8102";
+const PIN_HASH="53a38e1720a163fdc0b540f484bb43aabd830f9952f64ef6a2bbf6cfc3812f6f";
 let pinFails=0,pinLockUntil=0,prizeClock=null;
 async function pastRows(P){
   const col=db.collection("scores");
@@ -1762,6 +1786,14 @@ async function pastRows(P){
   b.docs.forEach(d=>{const v=d.data()||{};if(!m.has(d.id))m.set(d.id,{id:d.id,name:v.prevName,score:Number(v.prevScore)||0,m:Number(v.prevMeters)||0,at:Number(v.prevAt)||0,sub:(Number(v.prevMeters)||0)+" м"})});
   return [...m.values()].sort(rankCmp);
 }
+function prizeCode(uid,P){
+  const A="ABCDEFGHJKMNPQRSTUVWXYZ23456789",src=uid+"|"+P+"|hommes";let h1=2166136261,h2=5381;
+  for(let i=0;i<src.length;i++){const c=src.charCodeAt(i);h1=Math.imul(h1^c,16777619)>>>0;h2=(Math.imul(h2,33)+c)>>>0}
+  let out="",x=h1,y=h2;for(let i=0;i<6;i++){if(i<3){out+=A[x%31];x=Math.floor(x/31)}else{out+=A[y%31];y=Math.floor(y/31)}}
+  return out.slice(0,3)+"-"+out.slice(3);
+}
+const claimRef=(P,uid)=>db.collection("claims").doc(P+"_"+uid);
+async function claimInfo(P,uid){try{const c=await claimRef(P,uid).get();if(c.exists){const v=c.data()||{};return{claimed:true,at:Number(v.at)||0}}}catch(e){}return{claimed:false,at:0}}
 async function myPrize(rows){
   if(!db||!myId)return null;
   const P=seasonNow()-1;if(P<1)return null;
@@ -1769,7 +1801,8 @@ async function myPrize(rows){
   const idx=rows.findIndex(r=>r.id===myId);if(idx<0||idx>4)return null;
   let data={};try{const sn=await db.collection("scores").doc(myId).get();if(sn.exists)data=sn.data()||{}}catch(e){}
   const until=seasonEnds(P)+CLAIM_DAYS*864e5;
-  return{P,place:idx+1,text:PRIZES[idx],until,name:rows[idx].name,claimed:Number(data.claimSeason)===P,claimAt:Number(data.claimAt)||0,expired:Date.now()>=until};
+  const ci=await claimInfo(P,myId),own=Number(data.claimSeason)===P;
+  return{P,place:idx+1,text:PRIZES[idx],until,name:rows[idx].name,code:prizeCode(myId,P),claimed:own||ci.claimed,claimAt:own?(Number(data.claimAt)||ci.at):ci.at,expired:Date.now()>=until};
 }
 function fmtTime(t){const d=new Date(t+5*36e5);return [d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()].map(n=>String(n).padStart(2,"0")).join(":")}
 async function sha(txt){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(txt));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
@@ -1784,6 +1817,7 @@ function renderPrize(p){
   box.append(el("p","pd","Покажи этот экран администратору HOMMES. Приз действует до "+fmtDate(p.until-1)+" включительно, только вместе со стрижкой."));
   const live=el("div","live");const dot=el("i");const nm=el("span",null,String(p.name||"БАРБЕР").slice(0,16));const clk=el("span",null,fmtTime(Date.now()));
   live.append(dot,nm,clk);box.append(live);
+  const pc=el("div","pcode");pc.append(el("span",null,"КОД ПРИЗА"),el("b",null,p.code));box.append(pc,el("p","pnote","Играешь на компьютере? Запиши код и назови его администратору."));
   prizeClock=setInterval(()=>{clk.textContent=fmtTime(Date.now())},1000);
   const go=el("button","btn alt full","ПОГАСИТЬ · ДЛЯ АДМИНИСТРАТОРА");go.type="button";go.style.marginTop="10px";go.style.width="100%";
   box.append(go);
@@ -1800,11 +1834,53 @@ function renderPrize(p){
         if(await sha("hommes:"+v)!==PIN_HASH){pinFails++;if(pinFails>=5){pinFails=0;pinLockUntil=Date.now()+60000}err.textContent="Неверный ПИН.";inp.value="";ok.disabled=false;return}
         const ref=db.collection("scores").doc(myId);const sn=await ref.get();const d=sn.exists?sn.data()||{}:{};
         await ref.set(Object.assign({},d,{claimSeason:p.P,claimAt:Date.now()}));
+        try{await claimRef(p.P,myId).set({season:p.P,uid:myId,place:p.place,name:String(p.name||"").slice(0,16),at:Date.now(),via:"phone"})}catch(e){}
         sfx.power();renderPrize(Object.assign({},p,{claimed:true,claimAt:Date.now()}));refreshPrizeBtn();
       }catch(e){err.textContent="Не удалось сохранить. Проверь интернет и попробуй ещё раз.";ok.disabled=false}
     };
     ok.onclick=submit;inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")submit()};
   };
+}
+/* вход администратора: 5 нажатий на логотип в меню, затем ПИН */
+let admTaps=[],admOk=false;
+function openAdmin(){show("admin");renderAdmin()}
+function renderAdmin(){
+  const box=$("adminBody");box.innerHTML="";
+  if(!db){box.append(el("p","err","Нет связи с таблицей. Проверь интернет."));return}
+  if(!admOk){
+    const lab=el("label",null,"ПИН АДМИНИСТРАТОРА"),inp=el("input");inp.type="password";inp.inputMode="numeric";inp.maxLength=4;inp.autocomplete="off";
+    const ok=el("button","btn","ВОЙТИ");ok.type="button";const err=el("p","err","");box.append(lab,inp,ok,err);inp.focus();
+    const go=async()=>{if(Date.now()<pinLockUntil){err.textContent="Слишком много попыток. Подожди минуту.";return}
+      const v=inp.value.replace(/\D/g,"");if(v.length!==4){err.textContent="Введи 4 цифры.";return}
+      if(await sha("hommes:"+v)!==PIN_HASH){pinFails++;if(pinFails>=5){pinFails=0;pinLockUntil=Date.now()+60000}err.textContent="Неверный ПИН.";inp.value="";return}
+      admOk=true;renderAdmin()};
+    ok.onclick=go;inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")go()};return;
+  }
+  const P=seasonNow()-1;
+  if(P<1){box.append(el("p",null,"Это первый сезон. Призы появятся после "+fmtDate(seasonEnds(1))+"."));return}
+  const lab=el("label",null,"КОД ПРИЗА ИЗ ИГРЫ КЛИЕНТА"),inp=el("input");inp.type="text";inp.maxLength=7;inp.autocomplete="off";inp.placeholder="XXX-XXX";
+  const ok=el("button","btn","ПРОВЕРИТЬ");ok.type="button";const out=el("div");box.append(lab,inp,ok,out);inp.focus();
+  const norm=v=>v.toUpperCase().replace(/[^A-Z0-9]/g,"");
+  const check=async()=>{
+    const want=norm(inp.value);out.innerHTML="";if(want.length!==6){out.append(el("p","err","Код — 6 символов, например H7K-2QD."));return}
+    ok.disabled=true;
+    try{
+      const rows=(await pastRows(P)).slice(0,5);const i=rows.findIndex(r=>norm(prizeCode(r.id,P))===want);
+      if(i<0){out.append(el("p","err","Такого кода нет среди победителей сезона "+P+". Проверь, правильно ли записан код."));ok.disabled=false;return}
+      const r=rows[i],until=seasonEnds(P)+CLAIM_DAYS*864e5;
+      let claimed=(await claimInfo(P,r.id));
+      if(!claimed.claimed){try{const sn=await db.collection("scores").doc(r.id).get();const d=sn.exists?sn.data()||{}:{};if(Number(d.claimSeason)===P)claimed={claimed:true,at:Number(d.claimAt)||0}}catch(e){}}
+      const res=el("div","res");res.append(el("p",null,String(r.name||"БАРБЕР")+" · "+(i+1)+" МЕСТО · СЕЗОН "+P),el("div","t",PRIZES[i]));
+      if(claimed.claimed){res.append(el("p",null,"Приз уже выдан "+fmtDate(claimed.at)+" в "+fmtTime(claimed.at).slice(0,5)+"."));out.append(res);ok.disabled=false;return}
+      if(Date.now()>=until){res.append(el("p",null,"Срок получения истёк "+fmtDate(until-1)+"."));out.append(res);ok.disabled=false;return}
+      res.classList.add("ok");res.append(el("p",null,"Действует до "+fmtDate(until-1)+" включительно. Скидка — на одну стрижку."));
+      const give=el("button","btn","ВЫДАТЬ ПРИЗ");give.type="button";give.style.marginTop="10px";give.style.width="100%";res.append(give);out.append(res);
+      give.onclick=async()=>{give.disabled=true;try{await claimRef(P,r.id).set({season:P,uid:r.id,place:i+1,name:String(r.name||"").slice(0,16),at:Date.now(),via:"code"});
+        give.remove();res.append(el("p",null,"Готово: приз отмечен как выданный."));sfx.power()}catch(e){give.disabled=false;res.append(el("p","err","Не удалось сохранить. Возможно, приз уже выдан или нет связи."))}};
+    }catch(e){out.append(el("p","err","Не удалось загрузить итоги. Проверь интернет."))}
+    ok.disabled=false;
+  };
+  ok.onclick=check;inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")check()};
 }
 function refreshPrizeBtn(){myPrize().then(p=>{$("prizeBtn").hidden=!(p&&!p.claimed&&!p.expired)}).catch(()=>{$("prizeBtn").hidden=true})}
 dbReady.then(refreshPrizeBtn);
@@ -1812,25 +1888,37 @@ function closeLeaders(){clearInterval(prizeClock);if(lbUnsub){lbUnsub();lbUnsub=
 
 /* ============ экраны ============ */
 let backTo="menu";
-function show(id){["menu","edit","over","leaders","story"].forEach(k=>$(k).hidden=k!==id);if(id!=="leaders")closeLeaders()}
+function show(id){["menu","edit","over","leaders","story","admin"].forEach(k=>$(k).hidden=k!==id);if(id!=="leaders")closeLeaders()}
 const COARSE=!!(window.matchMedia&&matchMedia("(pointer: coarse)").matches);
 function start(){reset();state="play";show(null);$("hud").hidden=false;$("tapHint").textContent=COARSE?"ТАП — ПРЫЖОК · ДЕРЖИ — ВЫШЕ · СВАЙП ВНИЗ — ПОДКАТ":"ПРОБЕЛ — ПРЫЖОК · ДЕРЖИ — ВЫШЕ · ↓ — ПОДКАТ";$("tapHint").hidden=false;lastHud="";lastCombo="";audio();startMusic();showBanner(0);setTimeout(()=>{if(state==="play")$("tapHint").hidden=true},5500)}
 function toMenu(){state="menu";reset();$("hud").hidden=true;$("tapHint").hidden=true;$("banner").hidden=true;stopMusic();$("menuBest").textContent=best;show("menu");refreshPrizeBtn()}
-$("playBtn").onclick=start;$("againBtn").onclick=start;$("menuBtn").onclick=toMenu;
-$("editBtn").onclick=()=>{editMode=HEROES[ch.hero]?"hero":"own";show("edit");buildEditor()};
+// обязательное правило: перед игрой выбрать персонажа и вписать своё имя
+function nameOk(n){n=String(n||"").trim();return n.length>=2&&n!=="БАРБЕР"}
+function charReady(){return !!ch.ready&&nameOk(ch.name)}
+let startAfterSave=false;
+function tryStart(){if(charReady()){start();return}startAfterSave=true;editMode=HEROES[ch.hero]?"hero":"own";if(!nameOk(ch.name))ch.name="";show("edit");$("editMust").hidden=false;$("saveBtn").textContent="СОХРАНИТЬ И БЕЖАТЬ";buildEditor();setTimeout(()=>{const i=$("nameInput");if(i)i.focus()},50)}
+$("playBtn").onclick=tryStart;$("againBtn").onclick=start;$("menuBtn").onclick=toMenu;
+$("editBtn").onclick=()=>{startAfterSave=false;$("editMust").hidden=true;$("saveBtn").textContent="ГОТОВО";editMode=HEROES[ch.hero]?"hero":"own";show("edit");buildEditor()};
 $("tabOwn").onclick=()=>{editMode="own";buildEditor()};$("tabHero").onclick=()=>{editMode="hero";buildEditor()};
 $("leadBtn").onclick=()=>{backTo="menu";openLeaders("cur")};
 $("overLead").onclick=()=>{backTo="over";openLeaders("cur")};
 $("leadBack").onclick=()=>{show(backTo)};
 $("promoBtn").onclick=()=>{backTo="menu";openLeaders("cur");$("howto").open=true};
 $("leadBtn").addEventListener("click",()=>{$("howto").open=false});$("overLead").addEventListener("click",()=>{$("howto").open=false});
+$("adminBack").onclick=()=>{show("menu");refreshPrizeBtn()};
+document.querySelector("#menu .brand").addEventListener("click",()=>{const n=Date.now();admTaps=admTaps.filter(t=>n-t<3000);admTaps.push(n);if(admTaps.length>=5){admTaps=[];openAdmin()}});
 $("prizeBtn").onclick=()=>{backTo="menu";openLeaders("prev")};
 $("tabCur").onclick=()=>openLeaders("cur");$("tabPrev").onclick=()=>openLeaders("prev");
 $("storyBtn").onclick=openStory;$("storyBack").onclick=()=>show("over");
 $("storyDl").onclick=async()=>{if(!downloads||!storyBlob||!lastRun)return;try{await downloads.save({filename:"hommes-run-"+lastRun.sc+".png",data:storyBlob})}catch(e){const code=e&&e.code;if(code==="declined")return;$("storyHint").textContent="Скачать не получилось. Нажми на картинку и удерживай, чтобы сохранить её.";if(code!=="rate_limited")$("storyDl").hidden=true}};
 $("saveBtn").onclick=()=>{
-  if(!ch.name.trim())ch.name="БАРБЕР";store.set("hommes_char",ch);
+  ch.name=String(ch.name||"").trim().toUpperCase().slice(0,16);
+  if(!nameOk(ch.name)){const i=$("nameInput");let e=document.getElementById("nameErr");
+    if(i&&!e){e=document.createElement("p");e.id="nameErr";e.className="nameerr";i.insertAdjacentElement("afterend",e)}
+    if(e)e.textContent="Впиши своё имя (минимум 2 буквы) — без него нельзя попасть в таблицу.";if(i){i.focus();i.scrollIntoView({block:"center"})}return}
+  ch.ready=true;store.set("hommes_char",ch);$("editMust").hidden=true;
   if(db&&myId){const ref=db.collection("scores").doc(myId);ref.get().then(s=>{if(s.exists&&s.data().name!==ch.name)return ref.update({name:ch.name.slice(0,16),gender:curGender()})}).catch(()=>{})}
+  if(startAfterSave){startAfterSave=false;show("menu");start();return}
   toMenu()};
 $("menuBest").textContent=best;
 document.querySelectorAll("canvas[data-b]").forEach(el=>{drawBonus(el.getContext("2d"),el.dataset.b,26,26,20,false)});
@@ -1845,7 +1933,7 @@ stg.addEventListener("pointerup",ptrUp);stg.addEventListener("pointercancel",ptr
 window.addEventListener("keydown",e=>{
   if(e.code==="Space"||e.code==="ArrowUp"||e.code==="KeyW"){
     if(state==="play"){e.preventDefault();if(!e.repeat)jump()}
-    else if(state==="menu"&&!$("menu").hidden&&e.target===document.body){e.preventDefault();start()}
+    else if(state==="menu"&&!$("menu").hidden&&e.target===document.body){e.preventDefault();tryStart()}
   }else if((e.code==="ArrowDown"||e.code==="KeyS")&&state==="play"){e.preventDefault();if(!e.repeat)slide()}
 });
 window.addEventListener("keyup",e=>{if(e.code==="Space"||e.code==="ArrowUp"||e.code==="KeyW")cutJump()});
@@ -1871,7 +1959,7 @@ function buildEditor(){
   if(editMode==="hero"){
     const wrap=document.createElement("div");wrap.className="opt";
     const lab=document.createElement("label");lab.textContent="ИМЯ В ТАБЛИЦЕ";lab.htmlFor="nameInput";
-    const inp=document.createElement("input");inp.type="text";inp.id="nameInput";inp.maxLength=16;inp.value=ch.name;inp.oninput=()=>{ch.name=inp.value.toUpperCase()};
+    const inp=document.createElement("input");inp.type="text";inp.id="nameInput";inp.maxLength=16;inp.value=ch.name;inp.placeholder="ТВОЁ ИМЯ";inp.oninput=()=>{ch.name=inp.value.toUpperCase()};
     wrap.append(lab,inp);box.appendChild(wrap);
     const w2=document.createElement("div");w2.className="opt";const l2=document.createElement("label");l2.textContent="ГЕРОЙ";w2.appendChild(l2);
     const grid=document.createElement("div");grid.className="heroes";
@@ -1887,7 +1975,7 @@ function buildEditor(){
   for(const [key,o] of optList()){
     const wrap=document.createElement("div");wrap.className="opt"+(o.cls?" "+o.cls:"");
     const lab=document.createElement("label");lab.textContent=o.label;wrap.appendChild(lab);
-    if(key==="name"){const inp=document.createElement("input");inp.type="text";inp.id="nameInput";inp.maxLength=16;inp.value=ch.name;lab.htmlFor="nameInput";
+    if(key==="name"){const inp=document.createElement("input");inp.type="text";inp.id="nameInput";inp.maxLength=16;inp.value=ch.name;inp.placeholder="ТВОЁ ИМЯ";lab.htmlFor="nameInput";
       inp.oninput=()=>{ch.name=inp.value.toUpperCase()};wrap.appendChild(inp)}
     else{const row=document.createElement("div");row.className="row";
       (o.sw||o.v).forEach((v,i)=>{const b=document.createElement("button");b.type="button";b.id="opt-"+key+"-"+i;
