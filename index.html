@@ -103,6 +103,7 @@ input[type=text]{width:100%;font-family:var(--body);font-weight:700;font-size:16
 .board .nm small{display:block;font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--grey)}
 .board .pts{font-family:var(--display);font-weight:800;font-size:16px}
 .board li.me{background:#f6f1ee}
+.board li.gap{display:block;text-align:center;color:var(--grey);padding:2px 0;border:0}
 .tabs{display:flex;gap:6px;margin:0 0 10px}
 .tabs button{flex:1;font:inherit;font-weight:800;font-size:11px;letter-spacing:.12em;padding:9px 6px;border:1px solid var(--line);background:transparent;color:var(--grey);cursor:pointer;border-radius:0}
 .tabs button[aria-pressed="true"]{background:#111;color:#fff;border-color:#111}
@@ -1725,7 +1726,7 @@ async function submitScore(s){
       else if(old&&same&&old.prevSeason){rec.prevSeason=old.prevSeason;rec.prevScore=old.prevScore;rec.prevName=old.prevName;rec.prevMeters=old.prevMeters||0;rec.prevAt=old.prevAt||0}
       await Promise.race([ref.set(rec),new Promise((_,rj)=>setTimeout(()=>rj({code:"timeout"}),12000))]);
     }
-    const q=await db.collection("scores").where("season","==",S).limit(300).get();
+    const q=await db.collection("scores").where("season","==",S).limit(1000).get();
     const docs=q.docs.map(d=>{const v=d.data()||{};return{id:d.id,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0}}).sort(rankCmp);
     const idx=docs.findIndex(d=>d.id===myId);
     if(idx>=0)line.innerHTML=(s.sc>prev?"Новый лучший результат сезона "+S+": ":"Твоё место в сезоне "+S+": ")+"<b>#"+(idx+1)+"</b> из "+docs.length;
@@ -1736,7 +1737,9 @@ async function submitScore(s){
 let lbTab="cur";
 function renderBoard(rows){
   const list=$("board");list.innerHTML="";
-  rows.slice(0,30).forEach((v,i)=>{const li=document.createElement("li");if(v.id===myId)li.className="me";
+  const TOP=1e9,mi=rows.findIndex(v=>v.id===myId);const show=rows.slice(0,TOP).map((v,i)=>[v,i]);
+  if(mi>=TOP)show.push(null,[rows[mi],mi]);
+  show.forEach(e=>{if(!e){const g=document.createElement("li");g.className="gap";g.textContent="…";list.appendChild(g);return}const [v,i]=e;const li=document.createElement("li");if(v.id===myId)li.className="me";
     const p=document.createElement("span");p.className="pos";p.textContent=i+1;
     const n=document.createElement("span");n.className="nm";n.textContent=String(v.name||"БАРБЕР").slice(0,16);
     const sm=document.createElement("small");sm.textContent=v.sub;n.appendChild(sm);
@@ -1756,7 +1759,7 @@ function openLeaders(tab){
   clearTimeout(lbTimer);lbTimer=setTimeout(()=>{note.textContent="Таблица не отвечает. Проверь интернет и открой её ещё раз."},10000);
   const fail=()=>{clearTimeout(lbTimer);note.textContent="Не удалось загрузить таблицу. Попробуй позже."};
   if(lbTab==="cur"){
-    lbUnsub=db.collection("scores").where("season","==",S).limit(300).onSnapshot(snap=>{
+    lbUnsub=db.collection("scores").where("season","==",S).limit(1000).onSnapshot(snap=>{
       clearTimeout(lbTimer);
       const rows=snap.docs.map(d=>{const v=d.data()||{};return{id:d.id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0,sub:(Number(v.meters)||0)+" м · "+(Number(v.coins)||0)+" монет · "+(Number(v.cash)||0)+" пачек"}}).sort(rankCmp);
       renderBoard(rows);
@@ -1780,7 +1783,7 @@ const PIN_HASH="53a38e1720a163fdc0b540f484bb43aabd830f9952f64ef6a2bbf6cfc3812f6f
 let pinFails=0,pinLockUntil=0,prizeClock=null;
 async function pastRows(P){
   const col=db.collection("scores");
-  const [a,b]=await Promise.all([col.where("season","==",P).limit(300).get(),col.where("prevSeason","==",P).limit(300).get()]);
+  const [a,b]=await Promise.all([col.where("season","==",P).limit(1000).get(),col.where("prevSeason","==",P).limit(1000).get()]);
   const m=new Map();
   a.docs.forEach(d=>{const v=d.data()||{};m.set(d.id,{id:d.id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0,sub:(Number(v.meters)||0)+" м"})});
   b.docs.forEach(d=>{const v=d.data()||{};if(!m.has(d.id))m.set(d.id,{id:d.id,name:v.prevName,score:Number(v.prevScore)||0,m:Number(v.prevMeters)||0,at:Number(v.prevAt)||0,sub:(Number(v.prevMeters)||0)+" м"})});
