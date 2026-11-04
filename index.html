@@ -1713,11 +1713,12 @@ function seasonText(){const S=seasonNow(),left=seasonEnds(S)-Date.now();
 function rankCmp(x,y){return (y.score-x.score)||(y.m-x.m)||((x.at||9e15)-(y.at||9e15))||String(x.id).localeCompare(String(y.id))}
 async function submitScore(s){
   const line=$("rankLine");
-  if(!db||!myId)return;
+  if(!db||!myId){line.textContent="Нет связи с таблицей. Рекорд на этом устройстве сохранён.";return}
+  line.textContent="Отправляю результат в таблицу…";
   const S=seasonNow();
   try{
     const ref=db.collection("scores").doc(myId);let old=null;
-    try{const snap=await Promise.race([ref.get({source:"server"}),new Promise((_,rj)=>setTimeout(()=>rj({code:"timeout"}),12000))]);if(snap.exists)old=snap.data()||null}catch(e){if(e&&e.code==="timeout")throw e}
+    try{const snap=await Promise.race([ref.get({source:"server"}),new Promise((_,rj)=>setTimeout(()=>rj({code:"timeout"}),12000))]);if(snap.exists)old=snap.data()||null}catch(e){throw e}
     const same=old&&Number(old.season)===S,prev=same?Number(old.score)||0:0;
     if(s.sc>prev){
       const rec={name:(ch.name||"БАРБЕР").slice(0,16),score:s.sc,meters:s.m,coins:s.nCoin,cash:s.nCash,dur:s.dur||1,gender:curGender(),at:Date.now(),season:S};
@@ -1728,8 +1729,9 @@ async function submitScore(s){
     }
     const above=await countAbove(S,Math.max(s.sc,prev));
     if(above!=null)line.innerHTML=(s.sc>prev?"Новый лучший результат сезона "+S+": ":"Твоё место в сезоне "+S+": ")+"<b>#"+(above+1)+"</b>";
+    else line.textContent=s.sc>prev?"Новый лучший результат сезона "+S+" сохранён в таблице.":"Твой лучший результат в сезоне "+S+": "+prev+".";
   }catch(e){
-    line.textContent=e&&e.code==="timeout"?"Нет связи с таблицей. Проверь интернет или открой игру в Safari/Chrome — результат отправится, пока игра открыта.":e&&(e.code==="not_granted"||e.code==="permission-denied")?"Результат не попал в таблицу: нет прав на запись в эту игру.":"Не удалось отправить результат в таблицу.";
+    line.textContent=e&&e.code==="resource-exhausted"?"Таблица временно недоступна: превышен дневной лимит базы. Попробуй позже — рекорд на этом устройстве сохранён.":e&&e.code==="timeout"?"Нет связи с таблицей. Проверь интернет или открой игру в Safari/Chrome — результат отправится, пока игра открыта.":e&&(e.code==="not_granted"||e.code==="permission-denied")?"Результат не попал в таблицу: нет прав на запись в эту игру.":"Не удалось отправить результат в таблицу.";
   }
 }
 let lbTab="cur";
