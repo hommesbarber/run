@@ -574,10 +574,12 @@ function drawBonus(c,type,x,y,R,glow){
 const cv=$("game"),ctx=cv.getContext("2d");
 let W=0,H=0,DPR=1,K=1,VW=0,VT=0,VB=0;
 const GY=470,WB=402;
-const Q={dpr:Math.min(3,window.devicePixelRatio||1),lvl:0,fx:true};let CACHE_GEN=0;
+const Q={dpr:Math.min(3,window.devicePixelRatio||1),lvl:0,fx:true,pix:3.2e6};let CACHE_GEN=0;
 function resize(){
-  DPR=Math.min(window.devicePixelRatio||1,Q.dpr);
-  W=cv.clientWidth;H=cv.clientHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+  W=cv.clientWidth;H=cv.clientHeight;
+  // ограничение по числу пикселей: на больших экранах ноутбуков (retina) холст иначе выходит 5+ Мп и тормозит
+  DPR=Math.max(1,Math.min(window.devicePixelRatio||1,Q.dpr,Math.sqrt(Q.pix/Math.max(1,W*H))));
+  cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
   K=Math.min(H/540,W/640);
   const gScreen=H-Math.max(70*K,H*.2);
   VW=W/K;VT=GY-gScreen/K;VB=VT+H/K;
@@ -1681,13 +1683,13 @@ function openStory(){
   $("storyHint").textContent=downloads?"Сохрани картинку и выложи в сторис.":"Нажми на картинку и удерживай, чтобы сохранить её.";
 }
 let last=performance.now();
-let fAcc=0,fN=0;
+let fAcc=0,fN=0,rAcc=0;
 function loop(now){
   const raw=(now-last)/1000,dt=Math.min(.033,raw);last=now;
   // качество снижаем по реальному времени отрисовки кадра, а не по частоте кадров:
   // в режиме энергосбережения iPhone ограничивает 30 к/с, и картинка не должна от этого мыльнеть
   if(shake>0)shake-=dt;const w0=performance.now();update(dt);render();const work=performance.now()-w0;
-  if(state==="play"&&raw<.25){fAcc+=work;fN++;if(fN>=120){const avg=fAcc/fN;fAcc=0;fN=0;if(avg>14&&Q.lvl<2){Q.lvl++;Q.dpr=Q.lvl===1?Math.min(2,Math.max(1.5,(window.devicePixelRatio||1)*.75)):1.25;Q.fx=Q.lvl<2;resize()}}}
+  if(state==="play"&&raw<.25){fAcc+=work;rAcc+=raw;fN++;if(fN>=120){const avg=fAcc/fN,fr=rAcc/fN;fAcc=0;rAcc=0;fN=0;if((avg>14||fr>.04)&&Q.lvl<2){Q.pix=Q.lvl===0?2.2e6:1.4e6;Q.lvl++;Q.dpr=Q.lvl===1?Math.min(2,Math.max(1.5,(window.devicePixelRatio||1)*.75)):1.25;Q.fx=Q.lvl<2;resize()}}}
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
@@ -1727,9 +1729,9 @@ async function submitScore(s){
       else if(old&&same&&old.prevSeason){rec.prevSeason=old.prevSeason;rec.prevScore=old.prevScore;rec.prevName=old.prevName;rec.prevMeters=old.prevMeters||0;rec.prevAt=old.prevAt||0}
       await Promise.race([ref.set(rec),new Promise((_,rj)=>setTimeout(()=>rj({code:"timeout"}),12000))]);
     }
-    const above=await countAbove(S,Math.max(s.sc,prev));
+    const above=s.sc>prev?await countAbove(S,s.sc):null;
     if(above!=null)line.innerHTML=(s.sc>prev?"Новый лучший результат сезона "+S+": ":"Твоё место в сезоне "+S+": ")+"<b>#"+(above+1)+"</b>";
-    else line.textContent=s.sc>prev?"Новый лучший результат сезона "+S+" сохранён в таблице.":"Твой лучший результат в сезоне "+S+": "+prev+".";
+    else line.textContent=s.sc>prev?"Новый лучший результат сезона "+S+" сохранён в таблице.":prev>0?"Твой лучший результат в сезоне "+S+": "+prev+".":"Набери хотя бы одно очко, чтобы попасть в таблицу.";
   }catch(e){
     line.textContent=e&&e.code==="resource-exhausted"?"Таблица временно недоступна: превышен дневной лимит базы. Попробуй позже — рекорд на этом устройстве сохранён.":e&&e.code==="timeout"?"Нет связи с таблицей. Проверь интернет или открой игру в Safari/Chrome — результат отправится, пока игра открыта.":e&&(e.code==="not_granted"||e.code==="permission-denied")?"Результат не попал в таблицу: нет прав на запись в эту игру.":"Не удалось отправить результат в таблицу.";
   }
@@ -1797,9 +1799,10 @@ async function countAbove(S,sc){
       {fieldFilter:{field:{fieldPath:"score"},op:"GREATER_THAN",value:{integerValue:String(Math.floor(sc))}}}]}},
       orderBy:[{field:{fieldPath:"score"},direction:"DESCENDING"}]},aggregations:[{alias:"n",count:{}}]}};
     const r=await fetch("https://firestore.googleapis.com/v1/projects/"+window.HOMMES_FB.projectId+"/databases/(default)/documents:runAggregationQuery",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify(body)});
-    if(!r.ok)return null;const j=await r.json();const f=j&&j[0]&&j[0].result&&j[0].result.aggregateFields&&j[0].result.aggregateFields.n;
-    return f?Number(f.integerValue):null;
-  }catch(e){return null}
+    if(r.ok){const j=await r.json();const f=j&&j[0]&&j[0].result&&j[0].result.aggregateFields&&j[0].result.aggregateFields.n;if(f)return Number(f.integerValue)}
+  }catch(e){}
+  // запасной путь: обычный запрос, стоит столько чтений, сколько игроков выше (не больше 100)
+  try{const q=await db.collection("scores").where("season","==",S).where("score",">",Math.floor(sc)).orderBy("score","desc").limit(100).get();return q.size>=100?null:q.size}catch(e){return null}
 }
 async function pastRows(P){
   const ck="hommes_past_"+P;try{const c=JSON.parse(localStorage.getItem(ck)||"null");if(c&&Date.now()-c.t<600000&&Array.isArray(c.rows))return c.rows}catch(e){}
