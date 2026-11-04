@@ -239,7 +239,7 @@ input[type=text]{width:100%;font-family:var(--body);font-weight:700;font-size:16
   <div class="overlay" id="leaders" hidden>
     <div class="card">
       <div class="brand"><svg viewBox="0 0 80 100" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M0 0H80V100H0Z M22 0V28A18 18 0 0 0 58 28V0Z M22 100V72A18 18 0 0 1 58 72V100Z"/></svg>HOMMES<small>ЛИДЕРЫ</small></div>
-      <h2>Лучшие игроки</h2>
+      <h2>Топ-20 лучших игроков сезона</h2>
       <p class="season" id="seasonLine"></p>
       <div class="tabs" role="group" aria-label="Сезон"><button type="button" id="tabCur" aria-pressed="true">ТЕКУЩИЙ СЕЗОН</button><button type="button" id="tabPrev" aria-pressed="false">ПРОШЛЫЙ СЕЗОН</button></div>
       <div class="prize" id="prizeBox" hidden></div>
@@ -1484,7 +1484,7 @@ function die(k){
   state="over";shake=.4;zp=1;sfx.hit();stopMusic();evt=null;
   const sc=score();isRecord=sc>best;if(isRecord){best=sc;store.set("hommes_best",best)}
   $("tapHint").hidden=true;$("rankLine").textContent="";$("combo").hidden=true;
-  const F=curGender()==="f",snap={sc,m:Math.floor(meters),nCoin,nCash,shift:ENV.i,why:(REASONS[k]||["",""])[F?1:0],shot:snapGame()};lastRun=snap;
+  const F=curGender()==="f",snap={sc,m:Math.floor(meters),dur:Math.max(1,Math.round(runT)),nCoin,nCash,shift:ENV.i,why:(REASONS[k]||["",""])[F?1:0],shot:snapGame()};lastRun=snap;
   submitScore(snap);
   setTimeout(()=>{
     $("reason").textContent=isRecord?"НОВЫЙ РЕКОРД HOMMES":REASONS[k][F?1:0];
@@ -1720,27 +1720,26 @@ async function submitScore(s){
     try{const snap=await Promise.race([ref.get({source:"server"}),new Promise((_,rj)=>setTimeout(()=>rj({code:"timeout"}),12000))]);if(snap.exists)old=snap.data()||null}catch(e){if(e&&e.code==="timeout")throw e}
     const same=old&&Number(old.season)===S,prev=same?Number(old.score)||0:0;
     if(s.sc>prev){
-      const rec={name:(ch.name||"БАРБЕР").slice(0,16),score:s.sc,meters:s.m,coins:s.nCoin,cash:s.nCash,gender:curGender(),at:Date.now(),season:S};
+      const rec={name:(ch.name||"БАРБЕР").slice(0,16),score:s.sc,meters:s.m,coins:s.nCoin,cash:s.nCash,dur:s.dur||1,gender:curGender(),at:Date.now(),season:S};
       if(old&&old.claimSeason){rec.claimSeason=old.claimSeason;rec.claimAt=old.claimAt||0}
       if(old&&!same&&Number(old.season)>0){rec.prevSeason=Number(old.season);rec.prevScore=Number(old.score)||0;rec.prevName=String(old.name||"БАРБЕР").slice(0,16);rec.prevMeters=Number(old.meters)||0;rec.prevAt=Number(old.at)||0}
       else if(old&&same&&old.prevSeason){rec.prevSeason=old.prevSeason;rec.prevScore=old.prevScore;rec.prevName=old.prevName;rec.prevMeters=old.prevMeters||0;rec.prevAt=old.prevAt||0}
       await Promise.race([ref.set(rec),new Promise((_,rj)=>setTimeout(()=>rj({code:"timeout"}),12000))]);
     }
-    const q=await db.collection("scores").where("season","==",S).limit(1000).get();
-    const docs=q.docs.map(d=>{const v=d.data()||{};return{id:d.id,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0}}).sort(rankCmp);
-    const idx=docs.findIndex(d=>d.id===myId);
-    if(idx>=0)line.innerHTML=(s.sc>prev?"Новый лучший результат сезона "+S+": ":"Твоё место в сезоне "+S+": ")+"<b>#"+(idx+1)+"</b> из "+docs.length;
+    const above=await countAbove(S,Math.max(s.sc,prev));
+    if(above!=null)line.innerHTML=(s.sc>prev?"Новый лучший результат сезона "+S+": ":"Твоё место в сезоне "+S+": ")+"<b>#"+(above+1)+"</b>";
   }catch(e){
     line.textContent=e&&e.code==="timeout"?"Нет связи с таблицей. Проверь интернет или открой игру в Safari/Chrome — результат отправится, пока игра открыта.":e&&(e.code==="not_granted"||e.code==="permission-denied")?"Результат не попал в таблицу: нет прав на запись в эту игру.":"Не удалось отправить результат в таблицу.";
   }
 }
 let lbTab="cur";
-function renderBoard(rows){
+function renderBoard(rows,extra){
   const list=$("board");list.innerHTML="";
-  const TOP=1e9,mi=rows.findIndex(v=>v.id===myId);const show=rows.slice(0,TOP).map((v,i)=>[v,i]);
+  const TOP=20,mi=rows.findIndex(v=>v.id===myId);const show=rows.slice(0,TOP).map((v,i)=>[v,i]);
   if(mi>=TOP)show.push(null,[rows[mi],mi]);
+  if(extra&&extra.row&&mi<0)show.push(null,[extra.row,extra.place?extra.place-1:"—"]);
   show.forEach(e=>{if(!e){const g=document.createElement("li");g.className="gap";g.textContent="…";list.appendChild(g);return}const [v,i]=e;const li=document.createElement("li");if(v.id===myId)li.className="me";
-    const p=document.createElement("span");p.className="pos";p.textContent=i+1;
+    const p=document.createElement("span");p.className="pos";p.textContent=typeof i==="number"?i+1:i;
     const n=document.createElement("span");n.className="nm";n.textContent=String(v.name||"БАРБЕР").slice(0,16);
     const sm=document.createElement("small");sm.textContent=v.sub;n.appendChild(sm);
     const sc=document.createElement("span");sc.className="pts";sc.textContent=v.score;
@@ -1759,13 +1758,13 @@ function openLeaders(tab){
   clearTimeout(lbTimer);lbTimer=setTimeout(()=>{note.textContent="Таблица не отвечает. Проверь интернет и открой её ещё раз."},10000);
   const fail=()=>{clearTimeout(lbTimer);note.textContent="Не удалось загрузить таблицу. Попробуй позже."};
   if(lbTab==="cur"){
-    lbUnsub=db.collection("scores").where("season","==",S).limit(1000).onSnapshot(snap=>{
-      clearTimeout(lbTimer);
-      const rows=snap.docs.map(d=>{const v=d.data()||{};return{id:d.id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0,sub:(Number(v.meters)||0)+" м · "+(Number(v.coins)||0)+" монет · "+(Number(v.cash)||0)+" пачек"}}).sort(rankCmp);
-      renderBoard(rows);
-      if(!rows.length&&snap.metadata&&snap.metadata.fromCache){note.textContent="Подключаюсь к таблице…";return}
+    topRows(S).then(async rows=>{
+      clearTimeout(lbTimer);if(lbTab!=="cur")return;
+      let extra=null;
+      if(myId&&!rows.some(r=>r.id===myId)){try{const d=await db.collection("scores").doc(myId).get();const v=d.exists?d.data():null;if(v&&Number(v.season)===S){const a=await countAbove(S,Number(v.score)||0);extra={row:curRow(myId,v),place:a==null?null:a+1}}}catch(e){}}
+      renderBoard(rows,extra);
       note.textContent=rows.length?"Лучший результат каждого игрока в этом сезоне.":"Сезон только начался. Сыграй первым, и твоё имя будет здесь.";
-    },fail);
+    }).catch(fail);
     return;
   }
   const P=S-1;
@@ -1781,13 +1780,34 @@ function openLeaders(tab){
 const PRIZES=["СТРИЖКА БЕСПЛАТНО","−50% НА СТРИЖКУ","−50% НА СТРИЖКУ","−20% НА СТРИЖКУ","−20% НА СТРИЖКУ"],CLAIM_DAYS=15;
 const PIN_HASH="53a38e1720a163fdc0b540f484bb43aabd830f9952f64ef6a2bbf6cfc3812f6f";
 let pinFails=0,pinLockUntil=0,prizeClock=null;
+const TOP_N=20,lbCache={};
+function curRow(id,v){return{id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0,sub:(Number(v.meters)||0)+" м · "+(Number(v.coins)||0)+" монет · "+(Number(v.cash)||0)+" пачек"}}
+async function topRows(S){
+  const c=lbCache[S];if(c&&Date.now()-c.t<60000)return c.rows;
+  const q=await db.collection("scores").where("season","==",S).orderBy("score","desc").limit(TOP_N).get();
+  const rows=q.docs.map(d=>curRow(d.id,d.data()||{})).sort(rankCmp);lbCache[S]={t:Date.now(),rows};return rows;
+}
+async function countAbove(S,sc){
+  try{
+    const u=firebase.auth().currentUser;if(!u)return null;const tok=await u.getIdToken();
+    const body={structuredAggregationQuery:{structuredQuery:{from:[{collectionId:"scores"}],where:{compositeFilter:{op:"AND",filters:[
+      {fieldFilter:{field:{fieldPath:"season"},op:"EQUAL",value:{integerValue:String(S)}}},
+      {fieldFilter:{field:{fieldPath:"score"},op:"GREATER_THAN",value:{integerValue:String(Math.floor(sc))}}}]}},
+      orderBy:[{field:{fieldPath:"score"},direction:"DESCENDING"}]},aggregations:[{alias:"n",count:{}}]}};
+    const r=await fetch("https://firestore.googleapis.com/v1/projects/"+window.HOMMES_FB.projectId+"/databases/(default)/documents:runAggregationQuery",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify(body)});
+    if(!r.ok)return null;const j=await r.json();const f=j&&j[0]&&j[0].result&&j[0].result.aggregateFields&&j[0].result.aggregateFields.n;
+    return f?Number(f.integerValue):null;
+  }catch(e){return null}
+}
 async function pastRows(P){
+  const ck="hommes_past_"+P;try{const c=JSON.parse(localStorage.getItem(ck)||"null");if(c&&Date.now()-c.t<600000&&Array.isArray(c.rows))return c.rows}catch(e){}
   const col=db.collection("scores");
-  const [a,b]=await Promise.all([col.where("season","==",P).limit(1000).get(),col.where("prevSeason","==",P).limit(1000).get()]);
+  const [a,b]=await Promise.all([col.where("season","==",P).orderBy("score","desc").limit(15).get(),col.where("prevSeason","==",P).orderBy("prevScore","desc").limit(15).get()]);
   const m=new Map();
   a.docs.forEach(d=>{const v=d.data()||{};m.set(d.id,{id:d.id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:Number(v.at)||0,sub:(Number(v.meters)||0)+" м"})});
   b.docs.forEach(d=>{const v=d.data()||{};if(!m.has(d.id))m.set(d.id,{id:d.id,name:v.prevName,score:Number(v.prevScore)||0,m:Number(v.prevMeters)||0,at:Number(v.prevAt)||0,sub:(Number(v.prevMeters)||0)+" м"})});
-  return [...m.values()].sort(rankCmp);
+  const out=[...m.values()].sort(rankCmp);try{localStorage.setItem(ck,JSON.stringify({t:Date.now(),rows:out}))}catch(e){}
+  return out;
 }
 function prizeCode(uid,P){
   const A="ABCDEFGHJKMNPQRSTUVWXYZ23456789",src=uid+"|"+P+"|hommes";let h1=2166136261,h2=5381;
