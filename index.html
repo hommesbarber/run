@@ -1263,8 +1263,10 @@ const EVENTS={
   chef:{n:"ШЕФ СМОТРИТ",s:"НЕ ПРОПУСТИ НИ ОДНОЙ МОНЕТЫ",d:12,c:"#121212"}
 };
 let runT=0,finale=-1,coinRainT=0,nmLast=-9,nNear=0;
+let nJump=0,nSlide=0;
+function onRunStart(){try{if(db&&myId)db.collection("scores").doc(myId).set({curStart:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{})}catch(e){}}
 function reset(){
-  runT=0;finale=-1;coinRainT=0;nmLast=-9;nNear=0;
+  runT=0;nJump=0;nSlide=0;finale=-1;coinRainT=0;nmLast=-9;nNear=0;
   pl={x:120,y:0,vy:0,jumps:0,ph:0,slide:0,sq:0,wasAir:false,queueSlide:false,lastFs:0};
   obs=[];items=[];parts=[];pops=[];speed=500;camX=0;meters=0;pts=0;nCoin=0;nCash=0;spawnDist=520;bonusT=7;shake=0;
   pw={turbo:0,magnet:0,x2:0,shield:false};inv=0;ENV=envAt(0);
@@ -1324,7 +1326,7 @@ function jump(){
   if(state!=="play")return;
   if(pl.slide>0)pl.slide=0;
   if(pl.jumps<2){
-    pl.vy=pl.jumps===0?-1060:-900;pl.jumps++;lastJumpAt=t;pl.queueSlide=false;
+    pl.vy=pl.jumps===0?-1060:-900;pl.jumps++;nJump++;lastJumpAt=t;pl.queueSlide=false;
     pl.jumps===1?sfx.jump():sfx.jump2();
     for(let i=0;i<7;i++)parts.push({x:pl.x,y:GY+pl.y,vx:-60-rnd()*90,vy:-40-rnd()*80,l:.35,c:"rgba(120,118,112,.7)",r:3});
   }else jumpBuf=.14;
@@ -1336,6 +1338,7 @@ function startSlide(){
 }
 function slide(){
   if(state!=="play")return;
+  nSlide++;
   if(pl.y<-1||pl.vy<0){
     if(t-lastJumpAt<.16&&pl.jumps===1&&pl.y>-50){pl.y=0;pl.vy=0;pl.jumps=0}
     else{pl.vy=Math.max(pl.vy,1500);pl.queueSlide=true;return}
@@ -1486,7 +1489,7 @@ function die(k){
   state="over";shake=.4;zp=1;sfx.hit();stopMusic();evt=null;
   const sc=score();isRecord=sc>best;if(isRecord){best=sc;store.set("hommes_best",best)}
   $("tapHint").hidden=true;$("rankLine").textContent="";$("combo").hidden=true;
-  const F=curGender()==="f",snap={sc,m:Math.floor(meters),dur:Math.max(1,Math.round(runT)),nCoin,nCash,shift:ENV.i,why:(REASONS[k]||["",""])[F?1:0],shot:snapGame()};lastRun=snap;
+  const F=curGender()==="f",snap={sc,m:Math.floor(meters),dur:Math.max(1,Math.round(runT)),jumps:nJump,slides:nSlide,nCoin,nCash,shift:ENV.i,why:(REASONS[k]||["",""])[F?1:0],shot:snapGame()};lastRun=snap;
   submitScore(snap);
   setTimeout(()=>{
     $("reason").textContent=isRecord?"НОВЫЙ РЕКОРД HOMMES":REASONS[k][F?1:0];
@@ -1723,10 +1726,12 @@ async function submitScore(s){
     try{const snap=await Promise.race([ref.get({source:"server"}),new Promise((_,rj)=>setTimeout(()=>rj({code:"timeout"}),12000))]);if(snap.exists)old=snap.data()||null}catch(e){throw e}
     const same=old&&Number(old.season)===S,prev=same?Number(old.score)||0:0;
     if(s.sc>prev){
-      const rec={name:(ch.name||"БАРБЕР").slice(0,16),score:s.sc,meters:s.m,coins:s.nCoin,cash:s.nCash,dur:s.dur||1,gender:curGender(),at:Date.now(),season:S};
+      const rec={name:(ch.name||"БАРБЕР").slice(0,16),score:s.sc,meters:s.m,coins:s.nCoin,cash:s.nCash,dur:s.dur||1,jumps:s.jumps||0,slides:s.slides||0,gender:curGender(),at:Date.now(),season:S};
+      if(old&&old.curStart)rec.runStart=old.curStart;rec.endAt=firebase.firestore.FieldValue.serverTimestamp();
+      const cp=(k,v)=>{if(v!==undefined&&v!==null)rec[k]=v};
       if(old&&old.claimSeason){rec.claimSeason=old.claimSeason;rec.claimAt=old.claimAt||0}
-      if(old&&!same&&Number(old.season)>0){rec.prevSeason=Number(old.season);rec.prevScore=Number(old.score)||0;rec.prevName=String(old.name||"БАРБЕР").slice(0,16);rec.prevMeters=Number(old.meters)||0;rec.prevAt=Number(old.at)||0}
-      else if(old&&same&&old.prevSeason){rec.prevSeason=old.prevSeason;rec.prevScore=old.prevScore;rec.prevName=old.prevName;rec.prevMeters=old.prevMeters||0;rec.prevAt=old.prevAt||0}
+      if(old&&!same&&Number(old.season)>0){rec.prevSeason=Number(old.season);rec.prevScore=Number(old.score)||0;rec.prevName=String(old.name||"БАРБЕР").slice(0,16);rec.prevMeters=Number(old.meters)||0;rec.prevAt=Number(old.at)||0;cp("prevDur",old.dur);cp("prevJumps",old.jumps);cp("prevSlides",old.slides);cp("prevRunStart",old.runStart);cp("prevEndAt",old.endAt)}
+      else if(old&&same&&old.prevSeason){rec.prevSeason=old.prevSeason;rec.prevScore=old.prevScore;rec.prevName=old.prevName;rec.prevMeters=old.prevMeters||0;rec.prevAt=old.prevAt||0;cp("prevDur",old.prevDur);cp("prevJumps",old.prevJumps);cp("prevSlides",old.prevSlides);cp("prevRunStart",old.prevRunStart);cp("prevEndAt",old.prevEndAt)}
       await Promise.race([ref.set(rec),new Promise((_,rj)=>setTimeout(()=>rj({code:"timeout"}),12000))]);
     }
     const above=s.sc>prev?await countAbove(S,s.sc):null;
@@ -1832,6 +1837,17 @@ async function myPrize(rows){
   const ci=await claimInfo(P,myId),own=Number(data.claimSeason)===P;
   return{P,place:idx+1,text:PRIZES[idx],until,name:rows[idx].name,code:prizeCode(myId,P),claimed:own||ci.claimed,claimAt:own?(Number(data.claimAt)||ci.at):ci.at,expired:Date.now()>=until};
 }
+function runCheck(d,P){
+  const same=Number(d.season)===P,g=k=>same?d[k]:d["prev"+k[0].toUpperCase()+k.slice(1)];
+  const dur=Number(g("dur"))||0,rs=g("runStart"),ea=g("endAt"),j=g("jumps"),sl=g("slides");
+  if(!dur)return{text:"Проверка забега: нет данных — рекорд поставлен до обновления игры. Если сомневаешься, попроси пробежать при тебе.",bad:false};
+  const mm=x=>Math.floor(x/60)+":"+String(Math.round(x%60)).padStart(2,"0");
+  let real=rs&&ea&&rs.toMillis&&ea.toMillis?(ea.toMillis()-rs.toMillis())/1000:0;if(real>dur*4||real<=0)real=0; // метка начала потерялась — данных нет
+  let t="Забег: игровое время "+mm(dur)+(real>0?", реальное "+mm(real):"")+(j!=null?" · прыжков "+j+", подкатов "+(sl||0):"")+".";
+  const bad=real>0&&dur/real<.8;
+  t+=bad?" Игра шла заметно медленнее реального времени — возможно замедление. Попроси пробежать при тебе.":real>0?" Темп нормальный.":"";
+  return{text:t,bad};
+}
 function fmtTime(t){const d=new Date(t+5*36e5);return [d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()].map(n=>String(n).padStart(2,"0")).join(":")}
 async function sha(txt){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(txt));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
@@ -1861,6 +1877,7 @@ function renderPrize(p){
       try{
         if(await sha("hommes:"+v)!==PIN_HASH){pinFails++;if(pinFails>=5){pinFails=0;pinLockUntil=Date.now()+60000}err.textContent="Неверный ПИН.";inp.value="";ok.disabled=false;return}
         const ref=db.collection("scores").doc(myId);const sn=await ref.get();const d=sn.exists?sn.data()||{}:{};
+        if(!submit.confirmed){const rc=runCheck(d,p.P);row.remove();err.className=rc.bad?"perr":"";err.textContent=rc.text;const cf=el("button","btn","ПОДТВЕРДИТЬ ВЫДАЧУ");cf.type="button";cf.style.marginTop="10px";cf.style.width="100%";box.append(cf);submit.confirmed=true;cf.onclick=()=>{cf.disabled=true;submit()};return}
         await ref.set(Object.assign({},d,{claimSeason:p.P,claimAt:Date.now()}));
         try{await claimRef(p.P,myId).set({season:p.P,uid:myId,place:p.place,name:String(p.name||"").slice(0,16),at:Date.now(),via:"phone"})}catch(e){}
         sfx.power();renderPrize(Object.assign({},p,{claimed:true,claimAt:Date.now()}));refreshPrizeBtn();
@@ -1899,6 +1916,7 @@ function renderAdmin(){
       let claimed=(await claimInfo(P,r.id));
       if(!claimed.claimed){try{const sn=await db.collection("scores").doc(r.id).get();const d=sn.exists?sn.data()||{}:{};if(Number(d.claimSeason)===P)claimed={claimed:true,at:Number(d.claimAt)||0}}catch(e){}}
       const res=el("div","res");res.append(el("p",null,String(r.name||"БАРБЕР")+" · "+(i+1)+" МЕСТО · СЕЗОН "+P),el("div","t",PRIZES[i]));
+      try{const sn2=await db.collection("scores").doc(r.id).get();if(sn2.exists){const rc=runCheck(sn2.data()||{},P);res.append(el("p",rc.bad?"err":null,rc.text))}}catch(e){}
       if(claimed.claimed){res.append(el("p",null,"Приз уже выдан "+fmtDate(claimed.at)+" в "+fmtTime(claimed.at).slice(0,5)+"."));out.append(res);ok.disabled=false;return}
       if(Date.now()>=until){res.append(el("p",null,"Срок получения истёк "+fmtDate(until-1)+"."));out.append(res);ok.disabled=false;return}
       res.classList.add("ok");res.append(el("p",null,"Действует до "+fmtDate(until-1)+" включительно. Скидка — на одну стрижку."));
@@ -1918,7 +1936,7 @@ function closeLeaders(){clearInterval(prizeClock);if(lbUnsub){lbUnsub();lbUnsub=
 let backTo="menu";
 function show(id){["menu","edit","over","leaders","story","admin"].forEach(k=>$(k).hidden=k!==id);if(id!=="leaders")closeLeaders()}
 const COARSE=!!(window.matchMedia&&matchMedia("(pointer: coarse)").matches);
-function start(){reset();state="play";show(null);$("hud").hidden=false;$("tapHint").textContent=COARSE?"ТАП — ПРЫЖОК · ДЕРЖИ — ВЫШЕ · СВАЙП ВНИЗ — ПОДКАТ":"ПРОБЕЛ — ПРЫЖОК · ДЕРЖИ — ВЫШЕ · ↓ — ПОДКАТ";$("tapHint").hidden=false;lastHud="";lastCombo="";audio();startMusic();showBanner(0);setTimeout(()=>{if(state==="play")$("tapHint").hidden=true},5500)}
+function start(){reset();state="play";onRunStart();show(null);$("hud").hidden=false;$("tapHint").textContent=COARSE?"ТАП — ПРЫЖОК · ДЕРЖИ — ВЫШЕ · СВАЙП ВНИЗ — ПОДКАТ":"ПРОБЕЛ — ПРЫЖОК · ДЕРЖИ — ВЫШЕ · ↓ — ПОДКАТ";$("tapHint").hidden=false;lastHud="";lastCombo="";audio();startMusic();showBanner(0);setTimeout(()=>{if(state==="play")$("tapHint").hidden=true},5500)}
 function toMenu(){state="menu";reset();$("hud").hidden=true;$("tapHint").hidden=true;$("banner").hidden=true;stopMusic();$("menuBest").textContent=best;show("menu");refreshPrizeBtn()}
 // обязательное правило: перед игрой выбрать персонажа и вписать своё имя
 function nameOk(n){n=String(n||"").trim();return n.length>=2&&n!=="БАРБЕР"}
