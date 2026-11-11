@@ -1268,8 +1268,7 @@ let nJump=0,nSlide=0;
 let activeRun = null;
 function startMark(id) {
   if (!db || !myId) return Promise.resolve(false);
-  const data = {curStart: firebase.firestore.FieldValue.serverTimestamp()};
-  if (id) data.startId = id;
+  const data = {curStart: firebase.firestore.FieldValue.serverTimestamp(), startId:id};
   return db.collection("scores").doc(myId).set(data, {merge:true}).then(() => true);
 }
 async function withDeadline(promise, delay) {
@@ -1411,7 +1410,7 @@ function update(dt){
   if(state!=="play"){idleX+=60*dt;pl.ph+=dt*6;pl.sq=Math.max(0,pl.sq-dt*5);for(const o of obs)if(o.dead){o.x+=o.vx*dt;o.vy+=1800*dt;o.dy+=o.vy*dt;o.rot+=o.vr*dt;o.life-=dt*.8}return}
   if(hitstop>0){hitstop-=dt;return}
   runT+=dt;
-  const speedLimit = activeRun?.season >= 2 && ENV.i === SHIFTS.length - 1 ? 1500 : 1200;
+  const speedLimit = ENV.i === SHIFTS.length - 1 ? 1500 : 1200;
   speed = Math.min(speedLimit, speed + dt * [12, 9, 8, 7, 6][ENV.i]);
   const v=spd();camX+=v*dt;meters=camX/50;
   const e=envAt(runT);
@@ -1791,15 +1790,15 @@ async function submitScore(s, run) {
     setStatus("Сезон сменился во время забега. Результат остался на устройстве.");
     return;
   }
-  if (run.season >= 2 && run.interrupted) {
+  if (run.interrupted) {
     setStatus("Забег прерывался. Результат остался на устройстве.");
     return;
   }
-  if (!db || !myId || (run.season >= 2 && !run.ready)) {
+  if (!db || !myId || (!run.ready)) {
     setStatus("Старт не подтверждён. Результат остался на устройстве.");
     return;
   }
-  if (run.season >= 2 && run.elapsedMs > s.dur * 1150 + 6000) {
+  if (run.elapsedMs > s.dur * 1150 + 6000) {
     setStatus("ПОДОЗРЕНИЕ НА ЖУЛЬНИЧЕСТВО\nИгра обнаружила признаки замедления. Результат не засчитан в призовом рейтинге.", true);
     return;
   }
@@ -1811,7 +1810,7 @@ async function submitScore(s, run) {
       const old = doc.exists ? doc.data() : null;
       const bestScore = old?.season === run.season ? Number(old.score) || 0 : 0;
       if (s.sc <= bestScore) return {bestScore};
-      if (run.season >= 2 && (old?.startId !== run.id || !old.curStart)) {
+      if ((old?.startId !== run.id || !old.curStart)) {
         return {expired:true};
       }
       const record = {
@@ -1820,7 +1819,7 @@ async function submitScore(s, run) {
         season:run.season, at:run.finishedAt, endAt:firebase.firestore.FieldValue.serverTimestamp()
       };
       if (old?.curStart) record.runStart = old.curStart;
-      if (run.season >= 2) record.runId = run.id;
+      record.runId = run.id;
       carryScoreFields(record, old);
       tx.set(ref, record);
       return {written:true};
@@ -1943,7 +1942,7 @@ function runCheck(d,P){
   const mm=x=>{const sec=Math.round(x);return Math.floor(sec/60)+":"+String(sec%60).padStart(2,"0")};
   let real=rs&&ea&&rs.toMillis&&ea.toMillis?(ea.toMillis()-rs.toMillis())/1000:0;if(real<=0)real=0;
   let t="Забег: игровое время "+mm(dur)+(real>0?", реальное "+mm(real):"")+(j!=null?" · прыжков "+j+", подкатов "+(sl||0):"")+".";
-  const bad=real>0&&(P>=2 ? real>dur*1.15+6 || real<dur-2 : dur/real<.8);
+  const bad=real>0&&(rs.toMillis()>=1794435618000 ? real>dur*1.15+6 || real<dur-2 : dur/real<.8);
   t+=bad?" Игровое и серверное время заметно расходятся. Попроси пробежать при тебе.":real>0?" Время укладывается в допуск.":"";
   return{text:t,bad};
 }
@@ -2044,20 +2043,18 @@ async function start() {
   button.disabled = true;
   const season = seasonNow();
   const run = {
-    season, id:season >= 2 ? Array.from(crypto.getRandomValues(new Uint8Array(16)),
-      byte => byte.toString(16).padStart(2, "0")).join("") : null,
+    season, id:Array.from(crypto.getRandomValues(new Uint8Array(16)),
+      byte => byte.toString(16).padStart(2, "0")).join(""),
     name:(ch.name || "БАРБЕР").slice(0, 16), gender:curGender(),
     ready:false, interrupted:false
   };
   audio();
   let waitingForStart = true;
   try {
-    if (season >= 2) {
-      run.ready = await withDeadline(dbReady.then(() => {
-        if (!waitingForStart || $(screen).hidden || document.hidden) return false;
-        return startMark(run.id);
-      }), 5000);
-    } else startMark(null).catch(() => {});
+    run.ready = await withDeadline(dbReady.then(() => {
+      if (!waitingForStart || $(screen).hidden || document.hidden) return false;
+      return startMark(run.id);
+    }), 5000);
   } catch (error) {
     run.ready = false;
   } finally {
