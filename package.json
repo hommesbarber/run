@@ -1,0 +1,8 @@
+{
+  "name": "hommes-ranked-verifier",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {"node": ">=22"},
+  "scripts": {"start":"node server.cjs", "test":"node test.cjs"},
+  "dependencies": {"firebase-admin":"^13.0.0"}
+}
