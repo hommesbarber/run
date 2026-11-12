@@ -1214,9 +1214,9 @@ function obstacleBox(o){
     case"dryer":return{x:o.x+6,y:o.yy+4,w:48,h:40};
     case"ladder":return{x:o.x+10,y:GY-150,w:32,h:150};
     case"boxes":return{x:o.x+4,y:GY-76,w:56,h:76};
-    case"sign":return{x:o.x+6,y:VT-60,w:o.w-12,h:(GY-74)-(VT-60)};
-    case"opensign":return{x:o.x+6,y:VT-60,w:98,h:(GY-74)-(VT-60)};
-    case"shelf":return{x:o.x+4,y:VT-60,w:92,h:(GY-74)-(VT-60)};
+    case"sign":return{x:o.x+6,y:runTop-60,w:o.w-12,h:(GY-74)-(runTop-60)};
+    case"opensign":return{x:o.x+6,y:runTop-60,w:98,h:(GY-74)-(runTop-60)};
+    case"shelf":return{x:o.x+4,y:runTop-60,w:92,h:(GY-74)-(runTop-60)};
     case"basin":return{x:o.x+4,y:GY-80,w:64,h:80};
     case"pole":return{x:o.x+5,y:GY-118,w:20,h:118};
     case"rail":return{x:o.x+4,y:GY-94,w:112,h:94};
@@ -1261,7 +1261,15 @@ let state="menu",best=store.get("hommes_best",0);
 let pl,obs,items,parts,pops,speed,camX,meters,pts,nCoin,nCash,spawnDist,bonusT,t=0,shake=0,idleX=0,pw,inv;
 let combo=0,hitstop=0,zp=0,jumpBuf=0,lastJumpAt=-9,evt=null,evtNext=null,evtBag=[],darkA=0,lastRampQ=0,isRecord=false,lastRun=null;
 const dust=[];for(let i=0;i<28;i++)dust.push({x:rnd()*1200,y:120+rnd()*300,r:.6+rnd()*1.4,s:.2+rnd()*.6});
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+let runSeed = 0, runWidth = 900, runTop = 0;
+function runRnd() {
+  runSeed = (runSeed + 0x6d2b79f5) >>> 0;
+  let x = Math.imul(runSeed ^ (runSeed >>> 15), 1 | runSeed);
+  x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+  return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+}
+const runPick = values => values[Math.floor(runRnd() * values.length)];
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=runRnd()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
 const EVENTS={
   rush:{n:"НАПЛЫВ КЛИЕНТОВ",s:"10 СЕКУНД · ДЕНЬГИ ×2",d:10,c:"#e1362a"},
   dark:{n:"ОТКЛЮЧИЛИ СВЕТ",s:"ВИДНО ТОЛЬКО РЯДОМ",d:9,c:"#2b3fbf"},
@@ -1270,78 +1278,62 @@ const EVENTS={
 let runT=0,finale=-1,coinRainT=0,nmLast=-9,nNear=0;
 let nJump=0,nSlide=0;
 let activeRun = null;
-function startMark(id) {
-  if (!db || !myId) return Promise.resolve(false);
-  const data = {curStart: firebase.firestore.FieldValue.serverTimestamp(), startId:id};
-  return db.collection("scores").doc(myId).set(data, {merge:true}).then(() => true);
-}
-async function withDeadline(promise, delay) {
-  let timer;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise((_, reject) => { timer = setTimeout(() => reject({code:"timeout"}), delay); })
-    ]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
 function reset(){
-  runT=0;nJump=0;nSlide=0;finale=-1;coinRainT=0;nmLast=-9;nNear=0;
+  t=0;lastK="";runT=0;nJump=0;nSlide=0;finale=-1;coinRainT=0;nmLast=-9;nNear=0;
   pl={x:120,y:0,vy:0,jumps:0,ph:0,slide:0,sq:0,wasAir:false,queueSlide:false,lastFs:0};
   obs=[];items=[];parts=[];pops=[];speed=500;camX=0;meters=0;pts=0;nCoin=0;nCash=0;spawnDist=520;bonusT=7;shake=0;
   pw={turbo:0,magnet:0,x2:0,shield:false};inv=0;ENV=envAt(0);
   combo=0;hitstop=0;zp=0;jumpBuf=0;lastJumpAt=-9;evt=null;evtNext=null;evtBag=["dark"].concat(shuffle(["rush","chef","dark"]));darkA=0;lastRampQ=0;
 }
-reset();
 function comboMul(){return 1+Math.min(4,Math.floor(combo/8))}
 function addCoinRow(x0,y,n){for(let i=0;i<n;i++)items.push({k:"coin",x:x0+i*30,y,b:i*.6})}
 function addCoinArc(cx,top,n){for(let i=0;i<n;i++){const f=i/(n-1)-.5;items.push({k:"coin",x:cx+f*140,y:top+f*f*4*60,b:i*.6})}}
 function place(k,x,opt){
-  const o=OBS[k];const ob={k,x,w:o.w,h:o.h,t:0,ph:rnd()*6,seed:rnd(),say:pick(BUBBLES),skin:pick(CL_SKIN),hair:pick(CL_HAIR),var:"angry"};
-  if(k==="client"&&rnd()<.5)ob.var="wait";
+  const o=OBS[k];const ob={k,x,w:o.w,h:o.h,t:0,ph:runRnd()*6,seed:runRnd(),say:runPick(BUBBLES),skin:runPick(CL_SKIN),hair:runPick(CL_HAIR),var:"angry"};
+  if(k==="client"&&runRnd()<.5)ob.var="wait";
   Object.assign(ob,opt||{});
-  if(ob.var==="wait"){if(!opt||opt.say===undefined)ob.say=pick(WAIT);ob.tee=pick(W_TEE);ob.pants=pick(W_PANTS);ob.hs=pick(W_HAIR);ob.cap=pick(W_CAP);ob.bd=rnd()<.45;ob.phone=rnd()<.3}
-  if(k==="dryer")ob.yy=GY-176-rnd()*16;
+  if(ob.var==="wait"){if(!opt||opt.say===undefined)ob.say=runPick(WAIT);ob.tee=runPick(W_TEE);ob.pants=runPick(W_PANTS);ob.hs=runPick(W_HAIR);ob.cap=runPick(W_CAP);ob.bd=runRnd()<.45;ob.phone=runRnd()<.3}
+  if(k==="dryer")ob.yy=GY-176-runRnd()*16;
   obs.push(ob);return o.w;
 }
 function spd(){return Math.min(1740, speed*(pw.turbo>0?1.45:1))}
 let lastK="";
+reset();
 function placeCrowd(x,n){
-  const talk=new Set([0,1+Math.floor(rnd()*(n-1))]);let lvl=0;
-  for(let i=0;i<n;i++){const say=talk.has(i);place("client",x+i*36,{crowd:true,var:rnd()<.72?"wait":"angry",say:say?undefined:"",bi:say?(lvl++)%2:0});if(!say)obs[obs.length-1].say=""}
+  const talk=new Set([0,1+Math.floor(runRnd()*(n-1))]);let lvl=0;
+  for(let i=0;i<n;i++){const say=talk.has(i);place("client",x+i*36,{crowd:true,var:runRnd()<.72?"wait":"angry",say:say?undefined:"",bi:say?(lvl++)%2:0});if(!say)obs[obs.length-1].say=""}
   return(n-1)*36+54;
 }
 function hitAny(box,o){const b=obstacleBox(o);return Array.isArray(b)?b.some(r=>hit(box,r)):!!b&&hit(box,b)}
 function spawnPattern(){
-  const s=ENV.i,x=VW+60,v=spd(),rush=evt&&evt.type==="rush",chef=evt&&evt.type==="chef";
+  const s=ENV.i,x=runWidth+60,v=spd(),rush=evt&&evt.type==="rush",chef=evt&&evt.type==="chef";
   const pool=["boxes","cart","plant","client","client","client","crowd","crowd","cutchair","cutchair"];
   if(meters>60)pool.push("sign","crowd","crowd","cutchair","client","rail");
 
   if(s>=1)pool.push("crowd","crowd","client","cutchair","sign","rail","late","late");
   if(s>=2)pool.push("crowd","crowd","client","cutchair","cutchair","late");
   if(s>=3)pool.push("crowd","crowd","client","cutchair","sign","late");
-  let k=pick(pool);for(let tr=0;tr<4&&k===lastK&&k!=="client"&&k!=="crowd";tr++)k=pick(pool);if(rush&&rnd()<.6)k="client";lastK=k;
-  if(k==="crowd"){const n=Math.min(5,2+Math.floor(rnd()*(2+s)));const w=placeCrowd(x,n);addCoinArc(x+w/2,GY-200,7);const minGap=Math.max(290,v*.6),range=Math.max(110,400-s*65);spawnDist=w+minGap+rnd()*range;return}
-  if(k==="late"){place("late",x+380,{var:"wait",say:pick(LATE),bi:0});const minGap=Math.max(290,v*.6);spawnDist=54+380+minGap*1.9+rnd()*160;return}
+  let k=runPick(pool);for(let tr=0;tr<4&&k===lastK&&k!=="client"&&k!=="crowd";tr++)k=runPick(pool);if(rush&&runRnd()<.6)k="client";lastK=k;
+  if(k==="crowd"){const n=Math.min(5,2+Math.floor(runRnd()*(2+s)));const w=placeCrowd(x,n);addCoinArc(x+w/2,GY-200,7);const minGap=Math.max(290,v*.6),range=Math.max(110,400-s*65);spawnDist=w+minGap+runRnd()*range;return}
+  if(k==="late"){place("late",x+380,{var:"wait",say:runPick(LATE),bi:0});const minGap=Math.max(290,v*.6);spawnDist=54+380+minGap*1.9+runRnd()*160;return}
   let w=place(k,x);
-  const r=rnd(),comboP=.14+s*.09,solo=!!HANG[k]||k==="cutchair"||k==="rail";
-  if(r<comboP&&!solo&&k!=="client"){const k2=pick(["boxes","cart"]),gap=26+rnd()*36;w+=gap+place(k2,x+w+gap)}
+  const r=runRnd(),comboP=.14+s*.09,solo=!!HANG[k]||k==="cutchair"||k==="rail";
+  if(r<comboP&&!solo&&k!=="client"){const k2=runPick(["boxes","cart"]),gap=26+runRnd()*36;w+=gap+place(k2,x+w+gap)}
   else if(false){const gap=v*.95+40;w+=gap+place("dryer",x+w+gap)}
-  const o=OBS[k],cr=rnd();
+  const o=OBS[k],cr=runRnd();
   if(k==="dryer")addCoinRow(x,GY-40,5);
   else if(HANG[k])addCoinRow(x+4,GY-26,Math.max(3,Math.floor(OBS[k].w/26)));
   else if(cr<.45)addCoinArc(x+o.w/2,GY-o.h-70,5);
-  else if(cr<.62)items.push({k:"cash",x:x+o.w/2,y:GY-o.h-125,b:rnd()*6});
-  if(chef||rnd()<.32)addCoinRow(x+w+150,GY-34,chef?6:4);
-  if(rnd()<.16)items.push({k:"cash",x:x+w+230,y:GY-210,b:rnd()*6});
+  else if(cr<.62)items.push({k:"cash",x:x+o.w/2,y:GY-o.h-125,b:runRnd()*6});
+  if(chef||runRnd()<.32)addCoinRow(x+w+150,GY-34,chef?6:4);
+  if(runRnd()<.16)items.push({k:"cash",x:x+w+230,y:GY-210,b:runRnd()*6});
   const minGap=Math.max(290,v*.6),range=Math.max(110,400-s*65);
-  spawnDist=w+minGap+rnd()*range*(rush?.4:1);
+  spawnDist=w+minGap+runRnd()*range*(rush?.4:1);
 }
 function spawnBonus(){
-  let tp=pick(["magnet","magnet","x2","x2","shield","shield","turbo"]);if(tp==="shield"&&pw.shield)tp="x2";
-  items.push({k:"bonus",type:tp,x:VW+120,y:rnd()<.5?GY-96:GY-200,b:rnd()*6});
-  bonusT=9+rnd()*7;
+  let tp=runPick(["magnet","magnet","x2","x2","shield","shield","turbo"]);if(tp==="shield"&&pw.shield)tp="x2";
+  items.push({k:"bonus",type:tp,x:runWidth+120,y:runRnd()<.5?GY-96:GY-200,b:runRnd()*6});
+  bonusT=9+runRnd()*7;
 }
 function jump(){
   if(state!=="play")return;
@@ -1349,13 +1341,13 @@ function jump(){
   if(pl.jumps<2){
     pl.vy=pl.jumps===0?-1060:-900;pl.jumps++;nJump++;lastJumpAt=t;pl.queueSlide=false;
     pl.jumps===1?sfx.jump():sfx.jump2();
-    for(let i=0;i<7;i++)parts.push({x:pl.x,y:GY+pl.y,vx:-60-rnd()*90,vy:-40-rnd()*80,l:.35,c:"rgba(120,118,112,.7)",r:3});
+    for(let i=0;i<7;i++)parts.push({x:pl.x,y:GY+pl.y,vx:-60-runRnd()*90,vy:-40-runRnd()*80,l:.35,c:"rgba(120,118,112,.7)",r:3});
   }else jumpBuf=.14;
 }
 function cutJump(){if(state==="play"&&pl.vy<-420)pl.vy=-420}
 function startSlide(){
   if(pl.slide<=0)sfx.slide();pl.slide=.62;
-  for(let i=0;i<8;i++)parts.push({x:pl.x+10,y:GY-2,vx:-120-rnd()*160,vy:-30-rnd()*90,l:.4,c:"rgba(150,146,138,.7)",r:3});
+  for(let i=0;i<8;i++)parts.push({x:pl.x+10,y:GY-2,vx:-120-runRnd()*160,vy:-30-runRnd()*90,l:.4,c:"rgba(150,146,138,.7)",r:3});
 }
 function slide(){
   if(state!=="play")return;
@@ -1368,10 +1360,10 @@ function slide(){
 }
 const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
 function knock(o){
-  o.dead=true;o.life=1;o.vx=380+rnd()*200;o.vy=-520-rnd()*200;o.dy=0;o.rot=0;o.vr=(rnd()<.5?-1:1)*(5+rnd()*5);
+  o.dead=true;o.life=1;o.vx=380+runRnd()*200;o.vy=-520-runRnd()*200;o.dy=0;o.rot=0;o.vr=(runRnd()<.5?-1:1)*(5+runRnd()*5);
   shake=.18;hitstop=.05;zp=1;sfx.smash();
   const cy=HANG[o.k]?GY-110:o.k==="dryer"?o.yy+20:GY-o.h/2;
-  for(let i=0;i<14;i++)parts.push({x:o.x+o.w/2,y:cy,vx:(rnd()-.3)*420,vy:-rnd()*380,l:.6,c:pick(["#1a1512","#3d2617","#e1362a","#fff"]),r:2+rnd()*2});
+  for(let i=0;i<14;i++)parts.push({x:o.x+o.w/2,y:cy,vx:(runRnd()-.3)*420,vy:-runRnd()*380,l:.6,c:runPick(["#1a1512","#3d2617","#e1362a","#fff"]),r:2+runRnd()*2});
 }
 function popText(x,y,s,c,z){pops.push({x,y,s,c,l:z?1.6:.9,z:z||16})}
 function nextShiftAt(){const n=SHIFTS[ENV.i+1];return n?n.m:Infinity}
@@ -1379,19 +1371,19 @@ function nearMiss(o){
   if(t-nmLast<.4)return;nmLast=t;nNear++;
   const g=15*(pw.x2>0?2:1);pts+=g;zp=Math.max(zp,.45);
   popText(pl.x+20,GY+pl.y-150,"ЧИСТО! +"+g,"#2b3fbf");sfx.combo(2);
-  for(let i=0;i<8;i++)parts.push({x:pl.x,y:GY+pl.y-20,vx:(rnd()-.5)*220,vy:-60-rnd()*160,l:.45,c:"#2b3fbf",r:2.2,star:i%2===0});
+  for(let i=0;i<8;i++)parts.push({x:pl.x,y:GY+pl.y-20,vx:(runRnd()-.5)*220,vy:-60-runRnd()*160,l:.45,c:"#2b3fbf",r:2.2,star:i%2===0});
 }
 function closeShift(i){
   pts+=100;zp=1;sfx.power();
   popText(pl.x+150,GY-200,"СМЕНА ЗАКРЫТА +100","#e1362a",22);
-  for(let k=0;k<40;k++)parts.push({x:pl.x+(rnd()-.2)*VW*.7,y:VT+rnd()*40,vx:(rnd()-.5)*120,vy:60+rnd()*200,l:1.4,c:k%3?"#f2c94c":"#e1362a",r:3,star:k%2===0});
+  for(let k=0;k<40;k++)parts.push({x:pl.x+(runRnd()-.2)*runWidth*.7,y:runTop+runRnd()*40,vx:(runRnd()-.5)*120,vy:60+runRnd()*200,l:1.4,c:k%3?"#f2c94c":"#e1362a",r:3,star:k%2===0});
 }
 function activate(type){
   sfx.power();zp=1;
   if(type==="shield")pw.shield=true;else pw[type]=BONUS[type].d;
   popText(pl.x+10,GY-150,type==="x2"?"ДЕНЬГИ ×2":type==="turbo"?"ТУРБО!":type==="magnet"?"МАГНИТ":"ЩИТ",BONUS[type].c);
 }
-function planEvent(i){if(i<1)return;const type=evtBag.length?evtBag.shift():pick(["rush","dark","chef"]);evtNext={type,m:runT+3+rnd()*6}}
+function planEvent(i){if(i<1)return;const type=evtBag.length?evtBag.shift():runPick(["rush","dark","chef"]);evtNext={type,m:runT+3+runRnd()*6}}
 function startEvent(type){const E=EVENTS[type];evt={type,t:E.d,d:E.d,fail:0};showBanner(-1,"СОБЫТИЕ",E.n,E.s);sfx.evt();zp=1}
 function endEvent(){
   if(evt.type==="chef"){if(evt.fail===0){pts+=100;popText(pl.x+40,GY-170,"ШЕФ ДОВОЛЕН +100","#e1362a");sfx.power()}else popText(pl.x+40,GY-170,"ШЕФ НЕДОВОЛЕН","#6c6b68")}
@@ -1410,7 +1402,7 @@ function update(dt){
   for(const q of parts){q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=600*dt;q.l-=dt}parts=parts.filter(q=>q.l>0);
   for(const p of pops){p.y-=50*dt;p.l-=dt}pops=pops.filter(p=>p.l>0);
   zp=Math.max(0,zp-dt*4);
-  {let tg=(evt&&evt.type==="dark")?1:0;const fl=tg&&evt.d-evt.t<1.3;if(fl){tg=(Math.floor(t*14)%3===0)?0:1;if(rnd()<.06)sfx.click()}darkA+=(tg-darkA)*Math.min(1,dt*(fl?22:6))}
+  {let tg=(evt&&evt.type==="dark")?1:0;const fl=tg&&evt.d-evt.t<1.3;if(fl){tg=(Math.floor(t*14)%3===0)?0:1;if(runRnd()<.06)sfx.click()}darkA+=(tg-darkA)*Math.min(1,dt*(fl?22:6))}
   if(state!=="play"){idleX+=60*dt;pl.ph+=dt*6;pl.sq=Math.max(0,pl.sq-dt*5);for(const o of obs)if(o.dead){o.x+=o.vx*dt;o.vy+=1800*dt;o.dy+=o.vy*dt;o.rot+=o.vr*dt;o.life-=dt*.8}return}
   if(hitstop>0){hitstop-=dt;return}
   runT+=dt;
@@ -1428,7 +1420,7 @@ function update(dt){
   if(pl.y>=0){
     const landed=pl.wasAir;pl.y=0;pl.vy=0;pl.jumps=0;
     if(landed){
-      pl.sq=1;for(let i=0;i<6;i++)parts.push({x:pl.x+(rnd()-.5)*20,y:GY-2,vx:(rnd()-.5)*160,vy:-20-rnd()*60,l:.35,c:"rgba(150,146,138,.6)",r:2.5});
+      pl.sq=1;for(let i=0;i<6;i++)parts.push({x:pl.x+(runRnd()-.5)*20,y:GY-2,vx:(runRnd()-.5)*160,vy:-20-runRnd()*60,l:.35,c:"rgba(150,146,138,.6)",r:2.5});
       if(pl.queueSlide){pl.queueSlide=false;startSlide()}
       if(jumpBuf>0){jumpBuf=0;jump()}
     }
@@ -1437,18 +1429,18 @@ function update(dt){
   jumpBuf=Math.max(0,jumpBuf-dt);pl.slide=Math.max(0,pl.slide-dt);pl.sq=Math.max(0,pl.sq-dt*5);
   pl.ph+=dt*v/42;
   const fs=Math.sin(pl.ph);
-  if(!pl.wasAir&&pl.slide<=0&&Math.sign(fs)!==Math.sign(pl.lastFs))parts.push({x:pl.x+(fs>0?8:-4),y:GY-2,vx:-80-rnd()*60,vy:-20-rnd()*40,l:.3,c:"rgba(160,156,148,.55)",r:2});
+  if(!pl.wasAir&&pl.slide<=0&&Math.sign(fs)!==Math.sign(pl.lastFs))parts.push({x:pl.x+(fs>0?8:-4),y:GY-2,vx:-80-runRnd()*60,vy:-20-runRnd()*40,l:.3,c:"rgba(160,156,148,.55)",r:2});
   pl.lastFs=fs;
-  if(pl.slide>0&&rnd()<.7)parts.push({x:pl.x+16,y:GY-3,vx:-200-rnd()*120,vy:-40-rnd()*80,l:.3,c:"rgba(150,146,138,.6)",r:2.5});
+  if(pl.slide>0&&runRnd()<.7)parts.push({x:pl.x+16,y:GY-3,vx:-200-runRnd()*120,vy:-40-runRnd()*80,l:.3,c:"rgba(150,146,138,.6)",r:2.5});
   pw.turbo=Math.max(0,pw.turbo-dt);pw.magnet=Math.max(0,pw.magnet-dt);pw.x2=Math.max(0,pw.x2-dt);inv=Math.max(0,inv-dt);
   const ns=nextShiftAt(),inFin=runT>=ns-2.6&&runT<ns;
   if(inFin&&finale!==ENV.i){finale=ENV.i;popText(pl.x+90,GY-200,"ФИНИШ СМЕНЫ — СОБИРАЙ!","#b98614",20)}
-  if(inFin){coinRainT-=dt;if(coinRainT<=0){coinRainT=.085;const ph=runT*5;items.push(rnd()<.12?{k:"cash",x:VW+40,y:GY-80-Math.max(0,Math.sin(ph))*110,b:rnd()*6}:{k:"coin",x:VW+40,y:GY-40-Math.max(0,Math.sin(ph))*120,b:rnd()*6})}
-    if(rnd()<.5)parts.push({x:rnd()*VW,y:VT,vx:(rnd()-.5)*40,vy:160+rnd()*120,l:1.2,c:rnd()<.7?"#f2c94c":"#e1362a",r:2.4,star:rnd()<.4});
+  if(inFin){coinRainT-=dt;if(coinRainT<=0){coinRainT=.085;const ph=runT*5;items.push(runRnd()<.12?{k:"cash",x:runWidth+40,y:GY-80-Math.max(0,Math.sin(ph))*110,b:runRnd()*6}:{k:"coin",x:runWidth+40,y:GY-40-Math.max(0,Math.sin(ph))*120,b:runRnd()*6})}
+    if(runRnd()<.5)parts.push({x:runRnd()*runWidth,y:runTop,vx:(runRnd()-.5)*40,vy:160+runRnd()*120,l:1.2,c:runRnd()<.7?"#f2c94c":"#e1362a",r:2.4,star:runRnd()<.4});
     spawnDist=Math.max(spawnDist,v*.35)}
   else{spawnDist-=v*dt;if(spawnDist<=0)spawnPattern()}
   bonusT-=dt;if(bonusT<=0)spawnBonus();
-  if(pw.turbo>0&&rnd()<.6)parts.push({x:pl.x-14,y:GY+pl.y-20-rnd()*80,vx:-300,vy:0,l:.25,c:"rgba(225,54,42,.5)",r:2});
+  if(pw.turbo>0&&runRnd()<.6)parts.push({x:pl.x-14,y:GY+pl.y-20-runRnd()*80,vx:-300,vy:0,l:.25,c:"rgba(225,54,42,.5)",r:2});
   const box=pl.slide>0?{x:pl.x-38,y:GY+pl.y-52,w:54,h:48}:{x:pl.x-12,y:GY+pl.y-118,w:28,h:112};
   for(const o of obs){
     if(o.dead){o.x+=(o.vx-v)*dt;o.vy+=1800*dt;o.dy+=o.vy*dt;o.rot+=o.vr*dt;o.life-=dt*.8;continue}
@@ -1490,7 +1482,7 @@ function update(dt){
         popText(it.x,it.y-18,"+"+gain,it.k==="cash"?"#e1362a":"#b98614");
       }
       const col=it.k==="cash"?"#d46b45":it.k==="coin"?"#f2c94c":BONUS[it.type].c;
-      for(let i=0;i<9;i++)parts.push({x:it.x,y:it.y,vx:(rnd()-.5)*260,vy:(rnd()-.8)*260,l:.5,c:col,r:2.5,star:i%3===0});
+      for(let i=0;i<9;i++)parts.push({x:it.x,y:it.y,vx:(runRnd()-.5)*260,vy:(runRnd()-.8)*260,l:.5,c:col,r:2.5,star:i%3===0});
     }
   }
   items=items.filter(i=>i.x>-60&&!i.got);
@@ -1514,7 +1506,7 @@ function die(k){
   const F=curGender()==="f",snap={sc,m:Math.floor(meters),dur:Math.max(1,Math.round(runT)),jumps:nJump,slides:nSlide,nCoin,nCash,shift:ENV.i,why:(REASONS[k]||["",""])[F?1:0],shot:snapGame()};lastRun=snap;
   activeRun.finishedAt = wallNow();
   activeRun.elapsedMs = frameNow() - activeRun.startedAt;
-  submitScore(snap, activeRun);
+  submitScore(activeRun);
   setTimeout(()=>{
     $("reason").textContent=isRecord?"НОВЫЙ РЕКОРД HOMMES":REASONS[k][F?1:0];
     $("overName").textContent=ch.name||"БАРБЕР";
@@ -1742,7 +1734,12 @@ function loop(now){
   while (simRemainder + 1e-9 >= SIM_STEP) {
     simRemainder = Math.max(0, simRemainder - SIM_STEP);
     if (shake > 0) shake -= SIM_STEP;
+    const running = state === "play";
+    if (running) activeRun.tick++;
     update(SIM_STEP);
+    if (running && state === "play" && activeRun.tick % 60 === 0) {
+      sendRanked(activeRun, "checkpoint");
+    }
   }
   render();
   const work = frameNow() - w0;
@@ -1770,77 +1767,82 @@ function seasonText(){const S=seasonNow(),left=seasonEnds(S)-wallNow();
   const d=Math.ceil(left/864e5);return "СЕЗОН "+S+" · ПОДВЕДЕНИЕ ИТОГОВ ЧЕРЕЗ "+d+" "+daysWord(d).toUpperCase()+" ("+fmtDate(seasonEnds(S))+")"}
 // порядок в таблице: больше очков; при равенстве — больше метров; дальше — кто раньше набрал
 function rankCmp(x,y){return (y.score-x.score)||(y.m-x.m)||((x.at||9e15)-(y.at||9e15))||String(x.id).localeCompare(String(y.id))}
-const ARCHIVE_FIELDS = ["season","score","name","meters","at","dur","jumps","slides","runStart","endAt"];
-function carryScoreFields(record, old) {
-  if (!old) return;
-  const sameSeason = old.season === record.season;
-  for (const field of ARCHIVE_FIELDS) {
-    const archived = "prev" + field[0].toUpperCase() + field.slice(1);
-    const value = old[sameSeason ? archived : field];
-    if (old.season > 0 && value != null) record[archived] = value;
+const RANKED_URL = ""; // Set to the production verifier URL before deploying this HTML.
+async function waitForRankedServer(stillStarting) {
+  const health = new URL("/health", RANKED_URL);
+  const deadline = frameNow() + 75000;
+  while (stillStarting() && frameNow() < deadline) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(health, {cache:"no-store", signal:controller.signal});
+      if (response.ok && (await response.text()) === "ok") return stillStarting();
+    } catch { /* A free host may still be starting. */ }
+    finally { clearTimeout(timer); }
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
-  for (const field of ["claimSeason", "claimAt"]) {
-    if (old[field] != null) record[field] = old[field];
+  return false;
+}
+async function rankedRequest(payload, token) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    const headers = {"Content-Type":"application/json"};
+    if (token) headers.Authorization = "Bearer " + token;
+    const response = await fetch(RANKED_URL, {
+      method:"POST", headers, body:JSON.stringify(payload), signal:controller.signal
+    });
+    if (!response.ok) throw new Error("Ranked run rejected");
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
   }
 }
-async function submitScore(s, run) {
-  const line = $("rankLine");
+function rankedInput(action) {
+  if (state !== "play" || tabPaused) return;
+  if (activeRun.ready && !activeRun.interrupted) {
+    activeRun.actions.push({tick:activeRun.tick+1, action});
+  }
+  if (action === "jump") jump();
+  else if (action === "slide") slide();
+  else cutJump();
+}
+function sendRanked(run, op) {
+  if (!run.ready || run.interrupted || run.failed) return run.pending;
+  if (run.queued >= 3) {
+    run.failed = true;
+    return run.pending;
+  }
+  const payload = {op, id:run.id, tick:run.tick, actions:run.actions.splice(0)};
+  run.queued++;
+  run.pending = run.pending.then(() => {
+    if (!run.failed && !run.interrupted) return rankedRequest(payload);
+  }).catch(() => { run.failed = true; }).finally(() => { run.queued--; });
+  return run.pending;
+}
+async function submitScore(run) {
+  const status = $("rankLine");
   const setStatus = (message, suspicious = false) => {
     if (activeRun !== run) return;
-    line.classList.toggle("is-suspicious", suspicious);
-    line.textContent = message;
+    status.classList.toggle("is-suspicious", suspicious);
+    status.textContent = message;
   };
-  if (run.season !== seasonNow()) {
-    setStatus("Сезон сменился во время забега. Результат остался на устройстве.");
+  if (!run.ready || run.interrupted || run.failed) {
+    setStatus("Проверка забега недоступна. Результат остался на устройстве.");
     return;
   }
-  if (run.interrupted) {
-    setStatus("Забег прерывался. Результат остался на устройстве.");
+  if (run.elapsedMs > run.tick * 1000 / 60 + 1500) {
+    setStatus("ПОДОЗРЕНИЕ НА ЖУЛЬНИЧЕСТВО\nРезультат не засчитан в призовом рейтинге.", true);
     return;
   }
-  if (!db || !myId || (!run.ready)) {
-    setStatus("Старт не подтверждён. Результат остался на устройстве.");
+  setStatus("Сервер проверяет забег…");
+  const result = await sendRanked(run, "finish");
+  if (!result || run.failed) {
+    setStatus("Сервер не подтвердил забег. Результат остался на устройстве.");
     return;
   }
-  if (run.elapsedMs > s.dur * 1150 + 6000) {
-    setStatus("ПОДОЗРЕНИЕ НА ЖУЛЬНИЧЕСТВО\nИгра обнаружила признаки замедления. Результат не засчитан в призовом рейтинге.", true);
-    return;
-  }
-  setStatus("Отправляю результат в таблицу…");
-  const ref = db.collection("scores").doc(myId);
-  try {
-    const saved = await db.runTransaction(async tx => {
-      const doc = await tx.get(ref);
-      const old = doc.exists ? doc.data() : null;
-      const bestScore = old?.season === run.season ? Number(old.score) || 0 : 0;
-      if (s.sc <= bestScore) return {bestScore};
-      if ((old?.startId !== run.id || !old.curStart)) {
-        return {expired:true};
-      }
-      const record = {
-        name:run.name, gender:run.gender, score:s.sc, meters:s.m, coins:s.nCoin,
-        cash:s.nCash, dur:s.dur, jumps:s.jumps, slides:s.slides,
-        season:run.season, at:run.finishedAt, endAt:firebase.firestore.FieldValue.serverTimestamp()
-      };
-      if (old?.curStart) record.runStart = old.curStart;
-      record.runId = run.id;
-      carryScoreFields(record, old);
-      tx.set(ref, record);
-      return {written:true};
-    });
-    if (saved.expired) setStatus("Открыт более новый забег. Этот результат остался на устройстве.");
-    else if (saved.written) {
-      delete lbCache[run.season];
-      setStatus("Новый лучший результат сезона " + run.season + " сохранён в таблице.");
-    } else if (saved.bestScore > 0) {
-      setStatus("Твой лучший результат в сезоне " + run.season + ": " + saved.bestScore + ".");
-    } else setStatus("Набери хотя бы одно очко, чтобы попасть в таблицу.");
-  } catch (error) {
-    const message = error?.code === "permission-denied"
-      ? "Результат не прошёл проверку времени или сезона. Он остался на устройстве."
-      : "Не удалось сохранить результат в таблице. Он остался на устройстве.";
-    setStatus(message);
-  }
+  delete lbCache[run.season];
+  setStatus(result.written ? "Сервер подтвердил новый рекорд." : "Забег проверен. В таблице сохраняется лучший результат сезона.");
 }
 let lbTab="cur";
 function renderBoard(rows,extra){
@@ -2044,30 +2046,38 @@ async function start() {
   starting = true;
   const screen = $("over").hidden ? "menu" : "over";
   const button = $(screen === "over" ? "againBtn" : "playBtn");
+  const originalLabel = button.textContent;
   button.disabled = true;
   const season = seasonNow();
   const run = {
-    season, id:Array.from(crypto.getRandomValues(new Uint8Array(16)),
-      byte => byte.toString(16).padStart(2, "0")).join(""),
+    season, id:null, tick:0, lastSent:0, actions:[], pending:Promise.resolve(), queued:0,
     name:(ch.name || "БАРБЕР").slice(0, 16), gender:curGender(),
     ready:false, interrupted:false
   };
   audio();
-  let waitingForStart = true;
   try {
-    run.ready = await withDeadline(dbReady.then(() => {
-      if (!waitingForStart || $(screen).hidden || document.hidden) return false;
-      return startMark(run.id);
-    }), 5000);
-  } catch (error) {
+    const stillStarting = () => !$(screen).hidden && !document.hidden;
+    if (RANKED_URL) button.textContent = "ПОДКЛЮЧАЕМСЯ…";
+    if (RANKED_URL && await waitForRankedServer(stillStarting)) {
+      await dbReady;
+      if (!stillStarting()) return;
+      const token = await firebase.auth().currentUser.getIdToken();
+      const session = await rankedRequest({op:"start", name:run.name, gender:run.gender}, token);
+      run.id = session.id;
+      run.season = session.season;
+      run.seed = session.seed;
+      run.ready = true;
+    }
+  } catch {
     run.ready = false;
   } finally {
-    waitingForStart = false;
     starting = false;
     button.disabled = false;
+    button.textContent = originalLabel;
   }
   if ($(screen).hidden || document.hidden) return;
   activeRun = run;
+  runSeed = run.seed ?? crypto.getRandomValues(new Uint32Array(1))[0];
   reset();
   simRemainder = 0;
   last = frameNow();
@@ -2116,20 +2126,20 @@ $("saveBtn").onclick=()=>{
 $("menuBest").textContent=best;
 document.querySelectorAll("canvas[data-b]").forEach(el=>{drawBonus(el.getContext("2d"),el.dataset.b,26,26,20,false)});
 let ptr=null;const stg=$("stage");
-stg.addEventListener("pointerdown",e=>{if(state!=="play"||tabPaused||ptr||e.target.closest("button"))return;e.preventDefault();ptr={id:e.pointerId,x:e.clientX,y:e.clientY,slid:false};jump()});
-stg.addEventListener("pointermove",e=>{if(!ptr||e.pointerId!==ptr.id||ptr.slid)return;const dy=e.clientY-ptr.y;if(dy>18&&dy>Math.abs(e.clientX-ptr.x)){ptr.slid=true;slide()}});
+stg.addEventListener("pointerdown",e=>{if(state!=="play"||tabPaused||ptr||e.target.closest("button"))return;e.preventDefault();ptr={id:e.pointerId,x:e.clientX,y:e.clientY,slid:false};rankedInput("jump")});
+stg.addEventListener("pointermove",e=>{if(!ptr||e.pointerId!==ptr.id||ptr.slid)return;const dy=e.clientY-ptr.y;if(dy>18&&dy>Math.abs(e.clientX-ptr.x)){ptr.slid=true;rankedInput("slide")}});
 // iPhone: не даём свайпу вниз сворачивать окно или обновлять страницу во время забега
 const noSys=e=>{if(state==="play"&&!tabPaused&&!(e.target.closest&&e.target.closest("button,input,.overlay")))e.preventDefault()};
 stg.addEventListener("touchstart",noSys,{passive:false});document.addEventListener("touchmove",noSys,{passive:false});
-const ptrUp=e=>{if(!ptr||e.pointerId!==ptr.id)return;if(!ptr.slid)cutJump();ptr=null};
+const ptrUp=e=>{if(!ptr||e.pointerId!==ptr.id)return;if(!ptr.slid)rankedInput("cutJump");ptr=null};
 stg.addEventListener("pointerup",ptrUp);stg.addEventListener("pointercancel",ptrUp);
 window.addEventListener("keydown",e=>{
   if(e.code==="Space"||e.code==="ArrowUp"||e.code==="KeyW"){
-    if(state==="play"&&!tabPaused){e.preventDefault();if(!e.repeat)jump()}
+    if(state==="play"&&!tabPaused){e.preventDefault();if(!e.repeat)rankedInput("jump")}
     else if(state==="menu"&&!$("menu").hidden&&e.target===document.body){e.preventDefault();tryStart()}
-  }else if((e.code==="ArrowDown"||e.code==="KeyS")&&state==="play"&&!tabPaused){e.preventDefault();if(!e.repeat)slide()}
+  }else if((e.code==="ArrowDown"||e.code==="KeyS")&&state==="play"&&!tabPaused){e.preventDefault();if(!e.repeat)rankedInput("slide")}
 });
-window.addEventListener("keyup",e=>{if(e.code==="Space"||e.code==="ArrowUp"||e.code==="KeyW")cutJump()});
+window.addEventListener("keyup",e=>{if(e.code==="Space"||e.code==="ArrowUp"||e.code==="KeyW")rankedInput("cutJump")});
 
 /* ============ редактор ============ */
 const pv=$("preview"),pctx=pv.getContext("2d");
