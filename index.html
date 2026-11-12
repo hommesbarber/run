@@ -308,6 +308,10 @@ window.HOMMES_FB={apiKey:"AIzaSyAPqaThQcmBLaqH-PD2YpHn8I1z9CO5jiA",authDomain:"h
 </script>
 <script>
 (function(){
+// Keep one clock and frame scheduler for the lifetime of this page.
+const frameNow = performance.now.bind(performance);
+const wallNow = Date.now.bind(Date);
+const scheduleFrame = window.requestAnimationFrame.bind(window);
 const $=id=>document.getElementById(id);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const H_LOGO=new Path2D("M0 0H80V100H0Z M22 0V28A18 18 0 0 0 58 28V0Z M22 100V72A18 18 0 0 1 58 72V100Z");
@@ -1508,8 +1512,8 @@ function die(k){
   const sc=score();isRecord=sc>best;if(isRecord){best=sc;store.set("hommes_best",best)}
   $("tapHint").hidden=true;$("rankLine").textContent="";$("combo").hidden=true;
   const F=curGender()==="f",snap={sc,m:Math.floor(meters),dur:Math.max(1,Math.round(runT)),jumps:nJump,slides:nSlide,nCoin,nCash,shift:ENV.i,why:(REASONS[k]||["",""])[F?1:0],shot:snapGame()};lastRun=snap;
-  activeRun.finishedAt = Date.now();
-  activeRun.elapsedMs = performance.now() - activeRun.startedAt;
+  activeRun.finishedAt = wallNow();
+  activeRun.elapsedMs = frameNow() - activeRun.startedAt;
   submitScore(snap, activeRun);
   setTimeout(()=>{
     $("reason").textContent=isRecord?"НОВЫЙ РЕКОРД HOMMES":REASONS[k][F?1:0];
@@ -1641,12 +1645,12 @@ function confetti(){
   const r=cf.getBoundingClientRect();cf.width=Math.round(r.width*DPR);cf.height=Math.round(r.height*DPR);
   const cols=[ch.hair,ch.hair,"#1a1512","#3d2617","#e1362a","#2b3fbf","#d9a227"];cfP=[];
   for(let i=0;i<150;i++)cfP.push({x:rnd()*r.width,y:-rnd()*r.height*.7,vx:(rnd()-.5)*60,vy:60+rnd()*120,a:rnd()*PI,va:(rnd()-.5)*8,l:6+rnd()*12,c:pick(cols),w:1.4+rnd()*2});
-  if(cfRun)return;cfRun=true;let lt=performance.now();
+  if(cfRun)return;cfRun=true;let lt=frameNow();
   const step=now=>{const dt=Math.min(.033,(now-lt)/1000);lt=now;cfx.setTransform(DPR,0,0,DPR,0,0);cfx.clearRect(0,0,r.width,r.height);let alive=0;
     for(const p of cfP){p.vy+=40*dt;p.x+=p.vx*dt+Math.sin(p.a)*20*dt;p.y+=p.vy*dt;p.a+=p.va*dt;if(p.y<r.height+20)alive++;
       cfx.save();cfx.translate(p.x,p.y);cfx.rotate(p.a);cfx.strokeStyle=p.c;cfx.lineWidth=p.w;cfx.lineCap="round";cfx.beginPath();cfx.moveTo(-p.l/2,0);cfx.quadraticCurveTo(0,-p.l*.3,p.l/2,0);cfx.stroke();cfx.restore()}
-    if(alive&&!$("over").hidden)requestAnimationFrame(step);else{cfRun=false;cfx.clearRect(0,0,cf.width,cf.height)}};
-  requestAnimationFrame(step);
+    if(alive&&!$("over").hidden)scheduleFrame(step);else{cfRun=false;cfx.clearRect(0,0,cf.width,cf.height)}};
+  scheduleFrame(step);
 }
 let downloads=null,storyBlob=null;
 downloads={save:async({filename,data})=>{const u=URL.createObjectURL(data),a=document.createElement("a");a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}};
@@ -1706,12 +1710,12 @@ function openStory(){
   $("storyHint").textContent=downloads?"Сохрани картинку и выложи в сторис.":"Нажми на картинку и удерживай, чтобы сохранить её.";
 }
 const SIM_STEP = 1 / 60;
-let last = performance.now(), simRemainder = 0;
+let last = frameNow(), simRemainder = 0;
 let tabPaused = document.hidden;
 document.addEventListener("visibilitychange", () => {
   tabPaused = document.hidden;
   simRemainder = 0;
-  last = performance.now();
+  last = frameNow();
   if (tabPaused && state === "play") {
     activeRun.interrupted = true;
     ptr = null;
@@ -1723,7 +1727,7 @@ function loop(now){
   const raw = Math.max(0, (now - last) / 1000);
   last = now;
   if (tabPaused) {
-    requestAnimationFrame(loop);
+    scheduleFrame(loop);
     return;
   }
   // A long interruption pauses the simulation instead of advancing it off-screen.
@@ -1734,18 +1738,18 @@ function loop(now){
   else simRemainder += raw;
     // качество снижаем по реальному времени отрисовки кадра, а не по частоте кадров:
     // в режиме энергосбережения iPhone ограничивает 30 к/с, и картинка не должна от этого мыльнеть
-  const w0 = performance.now();
+  const w0 = frameNow();
   while (simRemainder + 1e-9 >= SIM_STEP) {
     simRemainder = Math.max(0, simRemainder - SIM_STEP);
     if (shake > 0) shake -= SIM_STEP;
     update(SIM_STEP);
   }
   render();
-  const work = performance.now() - w0;
+  const work = frameNow() - w0;
   if(state==="play"&&raw<.25){fAcc+=work;rAcc+=raw;fN++;if(fN>=120){const avg=fAcc/fN,fr=rAcc/fN;fAcc=0;rAcc=0;fN=0;if((avg>14||fr>.04)&&Q.lvl<2){Q.pix=Q.lvl===0?2.2e6:1.4e6;Q.lvl++;Q.dpr=Q.lvl===1?Math.min(2,Math.max(1.5,(window.devicePixelRatio||1)*.75)):1.25;Q.fx=Q.lvl<2;resize()}}}
-  requestAnimationFrame(loop);
+  scheduleFrame(loop);
 }
-requestAnimationFrame(loop);
+scheduleFrame(loop);
 
 /* ============ таблица лидеров ============ */
 let db=null,user=null,myId=null,lbUnsub=null,lbTimer=null;
@@ -1757,11 +1761,11 @@ const dbReady=(async()=>{try{
 }catch(e){db=null;myId=null}})();
 /* сезоны: 20 дней от 3 ноября 2026, 00:00 по Екатеринбургу (UTC+5) */
 const SEASON_START=Date.UTC(2026,10,2,19,0,0),SEASON_LEN=20*864e5;
-function seasonNow(){return Math.max(1,Math.floor((Date.now()-SEASON_START)/SEASON_LEN)+1)}
+function seasonNow(){return Math.max(1,Math.floor((wallNow()-SEASON_START)/SEASON_LEN)+1)}
 function seasonEnds(n){return SEASON_START+(n||seasonNow())*SEASON_LEN}
 function fmtDate(t){const d=new Date(t+5*36e5);return String(d.getUTCDate()).padStart(2,"0")+"."+String(d.getUTCMonth()+1).padStart(2,"0")}
 function daysWord(n){const a=n%10,b=n%100;return a===1&&b!==11?"день":a>=2&&a<=4&&(b<12||b>14)?"дня":"дней"}
-function seasonText(){const S=seasonNow(),left=seasonEnds(S)-Date.now();
+function seasonText(){const S=seasonNow(),left=seasonEnds(S)-wallNow();
   if(left<864e5){const h=Math.max(1,Math.ceil(left/36e5));return "СЕЗОН "+S+" · ПОДВЕДЕНИЕ ИТОГОВ ЧЕРЕЗ "+h+" Ч"}
   const d=Math.ceil(left/864e5);return "СЕЗОН "+S+" · ПОДВЕДЕНИЕ ИТОГОВ ЧЕРЕЗ "+d+" "+daysWord(d).toUpperCase()+" ("+fmtDate(seasonEnds(S))+")"}
 // порядок в таблице: больше очков; при равенстве — больше метров; дальше — кто раньше набрал
@@ -1890,9 +1894,9 @@ const TOP_N=20,lbCache={};
 const rankTime = (season, end, fallback) => season >= 2 && end?.toMillis ? end.toMillis() : Number(fallback) || 0;
 function curRow(id,v){return{id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:rankTime(v.season,v.endAt,v.at),sub:(Number(v.meters)||0)+" м · "+(Number(v.coins)||0)+" монет · "+(Number(v.cash)||0)+" пачек"}}
 async function topRows(S){
-  const c=lbCache[S];if(c&&Date.now()-c.t<60000)return c.rows;
+  const c=lbCache[S];if(c&&wallNow()-c.t<60000)return c.rows;
   const q=await db.collection("scores").where("season","==",S).orderBy("score","desc").limit(TOP_N).get();
-  const rows=q.docs.map(d=>curRow(d.id,d.data()||{})).sort(rankCmp);lbCache[S]={t:Date.now(),rows};return rows;
+  const rows=q.docs.map(d=>curRow(d.id,d.data()||{})).sort(rankCmp);lbCache[S]={t:wallNow(),rows};return rows;
 }
 async function countAbove(S,sc){
   try{
@@ -1908,13 +1912,13 @@ async function countAbove(S,sc){
   try{const q=await db.collection("scores").where("season","==",S).where("score",">",Math.floor(sc)).orderBy("score","desc").limit(100).get();return q.size>=100?null:q.size}catch(e){return null}
 }
 async function pastRows(P){
-  const ck="hommes_past_"+P;try{const c=JSON.parse(localStorage.getItem(ck)||"null");if(c&&Date.now()-c.t<600000&&Array.isArray(c.rows))return c.rows}catch(e){}
+  const ck="hommes_past_"+P;try{const c=JSON.parse(localStorage.getItem(ck)||"null");if(c&&wallNow()-c.t<600000&&Array.isArray(c.rows))return c.rows}catch(e){}
   const col=db.collection("scores");
   const [a,b]=await Promise.all([col.where("season","==",P).orderBy("score","desc").limit(15).get(),col.where("prevSeason","==",P).orderBy("prevScore","desc").limit(15).get()]);
   const m=new Map();
   a.docs.forEach(d=>{const v=d.data()||{};m.set(d.id,{id:d.id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:rankTime(v.season,v.endAt,v.at),sub:(Number(v.meters)||0)+" м"})});
   b.docs.forEach(d=>{const v=d.data()||{};if(!m.has(d.id))m.set(d.id,{id:d.id,name:v.prevName,score:Number(v.prevScore)||0,m:Number(v.prevMeters)||0,at:rankTime(v.prevSeason,v.prevEndAt,v.prevAt),sub:(Number(v.prevMeters)||0)+" м"})});
-  const out=[...m.values()].sort(rankCmp);try{localStorage.setItem(ck,JSON.stringify({t:Date.now(),rows:out}))}catch(e){}
+  const out=[...m.values()].sort(rankCmp);try{localStorage.setItem(ck,JSON.stringify({t:wallNow(),rows:out}))}catch(e){}
   return out;
 }
 function prizeCode(uid,P){
@@ -1933,7 +1937,7 @@ async function myPrize(rows){
   let data={};try{const sn=await db.collection("scores").doc(myId).get();if(sn.exists)data=sn.data()||{}}catch(e){}
   const until=seasonEnds(P)+CLAIM_DAYS*864e5;
   const ci=await claimInfo(P,myId),own=Number(data.claimSeason)===P;
-  return{P,place:idx+1,text:PRIZES[idx],until,name:rows[idx].name,code:prizeCode(myId,P),claimed:own||ci.claimed,claimAt:own?(Number(data.claimAt)||ci.at):ci.at,expired:Date.now()>=until};
+  return{P,place:idx+1,text:PRIZES[idx],until,name:rows[idx].name,code:prizeCode(myId,P),claimed:own||ci.claimed,claimAt:own?(Number(data.claimAt)||ci.at):ci.at,expired:wallNow()>=until};
 }
 function runCheck(d,P){
   const same=Number(d.season)===P,g=k=>same?d[k]:d["prev"+k[0].toUpperCase()+k.slice(1)];
@@ -1957,10 +1961,10 @@ function renderPrize(p){
   if(p.claimed){box.classList.add("done");box.append(el("p","pd","Приз получен "+fmtDate(p.claimAt)+" в "+fmtTime(p.claimAt).slice(0,5)+". Спасибо, что играешь в HOMMES!"));return}
   if(p.expired){box.classList.add("done");box.append(el("p","pd","Срок получения истёк "+fmtDate(p.until-1)+"."));return}
   box.append(el("p","pd","Покажи этот экран администратору HOMMES. Приз действует до "+fmtDate(p.until-1)+" включительно, только вместе со стрижкой."));
-  const live=el("div","live");const dot=el("i");const nm=el("span",null,String(p.name||"БАРБЕР").slice(0,16));const clk=el("span",null,fmtTime(Date.now()));
+  const live=el("div","live");const dot=el("i");const nm=el("span",null,String(p.name||"БАРБЕР").slice(0,16));const clk=el("span",null,fmtTime(wallNow()));
   live.append(dot,nm,clk);box.append(live);
   const pc=el("div","pcode");pc.append(el("span",null,"КОД ПРИЗА"),el("b",null,p.code));box.append(pc,el("p","pnote","Играешь на компьютере? Запиши код и назови его администратору."));
-  prizeClock=setInterval(()=>{clk.textContent=fmtTime(Date.now())},1000);
+  prizeClock=setInterval(()=>{clk.textContent=fmtTime(wallNow())},1000);
   const go=el("button","btn alt full","ПОГАСИТЬ · ДЛЯ АДМИНИСТРАТОРА");go.type="button";go.style.marginTop="10px";go.style.width="100%";
   box.append(go);
   go.onclick=()=>{
@@ -1969,16 +1973,16 @@ function renderPrize(p){
     const ok=el("button","btn","ОК");ok.type="button";const err=el("p","perr","");
     row.append(inp,ok);box.append(row,err);inp.focus();
     const submit=async()=>{
-      if(Date.now()<pinLockUntil){err.textContent="Слишком много попыток. Подожди минуту.";return}
+      if(wallNow()<pinLockUntil){err.textContent="Слишком много попыток. Подожди минуту.";return}
       const v=inp.value.replace(/\D/g,"");if(v.length!==4){err.textContent="Введи 4 цифры.";return}
       ok.disabled=true;
       try{
-        if(await sha("hommes:"+v)!==PIN_HASH){pinFails++;if(pinFails>=5){pinFails=0;pinLockUntil=Date.now()+60000}err.textContent="Неверный ПИН.";inp.value="";ok.disabled=false;return}
+        if(await sha("hommes:"+v)!==PIN_HASH){pinFails++;if(pinFails>=5){pinFails=0;pinLockUntil=wallNow()+60000}err.textContent="Неверный ПИН.";inp.value="";ok.disabled=false;return}
         const ref=db.collection("scores").doc(myId);const sn=await ref.get();const d=sn.exists?sn.data()||{}:{};
         if(!submit.confirmed){const rc=runCheck(d,p.P);row.remove();err.className=rc.bad?"perr":"";err.textContent=rc.text;const cf=el("button","btn","ПОДТВЕРДИТЬ ВЫДАЧУ");cf.type="button";cf.style.marginTop="10px";cf.style.width="100%";box.append(cf);submit.confirmed=true;cf.onclick=()=>{cf.disabled=true;submit()};return}
-        await ref.set(Object.assign({},d,{claimSeason:p.P,claimAt:Date.now()}));
-        try{await claimRef(p.P,myId).set({season:p.P,uid:myId,place:p.place,name:String(p.name||"").slice(0,16),at:Date.now(),via:"phone"})}catch(e){}
-        sfx.power();renderPrize(Object.assign({},p,{claimed:true,claimAt:Date.now()}));refreshPrizeBtn();
+        await ref.set(Object.assign({},d,{claimSeason:p.P,claimAt:wallNow()}));
+        try{await claimRef(p.P,myId).set({season:p.P,uid:myId,place:p.place,name:String(p.name||"").slice(0,16),at:wallNow(),via:"phone"})}catch(e){}
+        sfx.power();renderPrize(Object.assign({},p,{claimed:true,claimAt:wallNow()}));refreshPrizeBtn();
       }catch(e){err.textContent="Не удалось сохранить. Проверь интернет и попробуй ещё раз.";ok.disabled=false}
     };
     ok.onclick=submit;inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")submit()};
@@ -1993,9 +1997,9 @@ function renderAdmin(){
   if(!admOk){
     const lab=el("label",null,"ПИН АДМИНИСТРАТОРА"),inp=el("input");inp.type="password";inp.inputMode="numeric";inp.maxLength=4;inp.autocomplete="off";
     const ok=el("button","btn","ВОЙТИ");ok.type="button";const err=el("p","err","");box.append(lab,inp,ok,err);inp.focus();
-    const go=async()=>{if(Date.now()<pinLockUntil){err.textContent="Слишком много попыток. Подожди минуту.";return}
+    const go=async()=>{if(wallNow()<pinLockUntil){err.textContent="Слишком много попыток. Подожди минуту.";return}
       const v=inp.value.replace(/\D/g,"");if(v.length!==4){err.textContent="Введи 4 цифры.";return}
-      if(await sha("hommes:"+v)!==PIN_HASH){pinFails++;if(pinFails>=5){pinFails=0;pinLockUntil=Date.now()+60000}err.textContent="Неверный ПИН.";inp.value="";return}
+      if(await sha("hommes:"+v)!==PIN_HASH){pinFails++;if(pinFails>=5){pinFails=0;pinLockUntil=wallNow()+60000}err.textContent="Неверный ПИН.";inp.value="";return}
       admOk=true;renderAdmin()};
     ok.onclick=go;inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")go()};return;
   }
@@ -2016,10 +2020,10 @@ function renderAdmin(){
       const res=el("div","res");res.append(el("p",null,String(r.name||"БАРБЕР")+" · "+(i+1)+" МЕСТО · СЕЗОН "+P),el("div","t",PRIZES[i]));
       try{const sn2=await db.collection("scores").doc(r.id).get();if(sn2.exists){const rc=runCheck(sn2.data()||{},P);res.append(el("p",rc.bad?"err":null,rc.text))}}catch(e){}
       if(claimed.claimed){res.append(el("p",null,"Приз уже выдан "+fmtDate(claimed.at)+" в "+fmtTime(claimed.at).slice(0,5)+"."));out.append(res);ok.disabled=false;return}
-      if(Date.now()>=until){res.append(el("p",null,"Срок получения истёк "+fmtDate(until-1)+"."));out.append(res);ok.disabled=false;return}
+      if(wallNow()>=until){res.append(el("p",null,"Срок получения истёк "+fmtDate(until-1)+"."));out.append(res);ok.disabled=false;return}
       res.classList.add("ok");res.append(el("p",null,"Действует до "+fmtDate(until-1)+" включительно. Скидка — на одну стрижку."));
       const give=el("button","btn","ВЫДАТЬ ПРИЗ");give.type="button";give.style.marginTop="10px";give.style.width="100%";res.append(give);out.append(res);
-      give.onclick=async()=>{give.disabled=true;try{await claimRef(P,r.id).set({season:P,uid:r.id,place:i+1,name:String(r.name||"").slice(0,16),at:Date.now(),via:"code"});
+      give.onclick=async()=>{give.disabled=true;try{await claimRef(P,r.id).set({season:P,uid:r.id,place:i+1,name:String(r.name||"").slice(0,16),at:wallNow(),via:"code"});
         give.remove();res.append(el("p",null,"Готово: приз отмечен как выданный."));sfx.power()}catch(e){give.disabled=false;res.append(el("p","err","Не удалось сохранить. Возможно, приз уже выдан или нет связи."))}};
     }catch(e){out.append(el("p","err","Не удалось загрузить итоги. Проверь интернет."))}
     ok.disabled=false;
@@ -2066,7 +2070,7 @@ async function start() {
   activeRun = run;
   reset();
   simRemainder = 0;
-  last = performance.now();
+  last = frameNow();
   run.startedAt = last;
   ptr = null;
   state = "play";
@@ -2095,7 +2099,7 @@ $("leadBack").onclick=()=>{show(backTo)};
 $("promoBtn").onclick=()=>{backTo="menu";openLeaders("cur");$("howto").open=true};
 $("leadBtn").addEventListener("click",()=>{$("howto").open=false});$("overLead").addEventListener("click",()=>{$("howto").open=false});
 $("adminBack").onclick=()=>{show("menu");refreshPrizeBtn()};
-document.querySelector("#menu .brand").addEventListener("click",()=>{const n=Date.now();admTaps=admTaps.filter(t=>n-t<3000);admTaps.push(n);if(admTaps.length>=5){admTaps=[];openAdmin()}});
+document.querySelector("#menu .brand").addEventListener("click",()=>{const n=wallNow();admTaps=admTaps.filter(t=>n-t<3000);admTaps.push(n);if(admTaps.length>=5){admTaps=[];openAdmin()}});
 $("prizeBtn").onclick=()=>{backTo="menu";openLeaders("prev")};
 $("tabCur").onclick=()=>openLeaders("cur");$("tabPrev").onclick=()=>openLeaders("prev");
 $("storyBtn").onclick=openStory;$("storyBack").onclick=()=>show("over");
