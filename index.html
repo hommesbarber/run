@@ -1257,7 +1257,7 @@ function drawCash(c,it,t){
 }
 
 /* ============ игра ============ */
-let state="menu",best=store.get("hommes_best",0);
+let state="menu",best=store.get("hommes_best_after_reset",0);
 let previousCamX = 0;
 let pl,obs,items,parts,pops,speed,camX,meters,pts,nCoin,nCash,spawnDist,bonusT,t=0,shake=0,idleX=0,pw,inv;
 let combo=0,hitstop=0,zp=0,jumpBuf=0,lastJumpAt=-9,evt=null,evtNext=null,evtBag=[],darkA=0,lastRampQ=0,isRecord=false,lastRun=null;
@@ -1518,7 +1518,7 @@ function showBanner(i,k,n,s){
 const REASONS={chair:["ВРЕЗАЛСЯ В КРЕСЛО","ВРЕЗАЛАСЬ В КРЕСЛО"],client:["КЛИЕНТ ТРЕБУЕТ ПЕРЕДЕЛАТЬ","КЛИЕНТ ТРЕБУЕТ ПЕРЕДЕЛАТЬ"],late:["СБИТ ОПОЗДАВШИМ КЛИЕНТОМ","СБИТА ОПОЗДАВШИМ КЛИЕНТОМ"],stool:["ОРАНЖЕВЫЙ ТАБУРЕТ НЕ ПРОСТИЛ","ОРАНЖЕВЫЙ ТАБУРЕТ НЕ ПРОСТИЛ"],cart:["СНЁС ТЕЛЕЖКУ С МАШИНКАМИ","СНЕСЛА ТЕЛЕЖКУ С МАШИНКАМИ"],puddle:["ПОСКОЛЬЗНУЛСЯ НА ШАМПУНЕ","ПОСКОЛЬЗНУЛАСЬ НА ШАМПУНЕ"],dryer:["ФЕН ПРИЛЕТЕЛ В ГОЛОВУ","ФЕН ПРИЛЕТЕЛ В ГОЛОВУ"],ladder:["ВРЕЗАЛСЯ В СТРЕМЯНКУ","ВРЕЗАЛАСЬ В СТРЕМЯНКУ"],boxes:["ЗАПНУЛСЯ О КОРОБКИ С ВОСКОМ","ЗАПНУЛАСЬ О КОРОБКИ С ВОСКОМ"],sign:["ВРЕЗАЛСЯ В СТЕЛЛАЖ С КОСМЕТИКОЙ","ВРЕЗАЛАСЬ В СТЕЛЛАЖ С КОСМЕТИКОЙ"],opensign:["НЕ ПРИГНУЛСЯ ПОД «ОТКРЫТО»","НЕ ПРИГНУЛАСЬ ПОД «ОТКРЫТО»"],shelf:["СНЁС ПОЛКУ ГОЛОВОЙ","СНЕСЛА ПОЛКУ ГОЛОВОЙ"],basin:["ВЛЕТЕЛ В МОЙКУ","ВЛЕТЕЛА В МОЙКУ"],pole:["ОБНЯЛ БАРБЕР-СТОЛБ","ОБНЯЛА БАРБЕР-СТОЛБ"],rail:["ЗАПУТАЛСЯ В ВЕШАЛКЕ","ЗАПУТАЛАСЬ В ВЕШАЛКЕ"],cooler:["ОПРОКИНУЛ КУЛЕР","ОПРОКИНУЛА КУЛЕР"],vacuum:["СБИТ РОБОТОМ-ПЫЛЕСОСОМ","СБИТА РОБОТОМ-ПЫЛЕСОСОМ"],basket:["УПАЛ В КОРЗИНУ С ПОЛОТЕНЦАМИ","УПАЛА В КОРЗИНУ С ПОЛОТЕНЦАМИ"],plant:["ВРЕЗАЛСЯ В МОНСТЕРУ","ВРЕЗАЛАСЬ В МОНСТЕРУ"],bucket:["НАСТУПИЛ НА ВЕДРО","НАСТУПИЛА НА ВЕДРО"],case:["СПОТКНУЛСЯ О КЕЙС","СПОТКНУЛАСЬ О КЕЙС"],cat:["РАЗБУДИЛ КОТА","РАЗБУДИЛА КОТА"],mirror:["ВРЕЗАЛСЯ В ЗЕРКАЛО","ВРЕЗАЛАСЬ В ЗЕРКАЛО"],hairpile:["ЗАСТРЯЛ В ГОРЕ ВОЛОС","ЗАСТРЯЛА В ГОРЕ ВОЛОС"],cutchair:["ПОМЕШАЛ СТРИЖКЕ","ПОМЕШАЛА СТРИЖКЕ"],boxes:["ЗАПНУЛСЯ О КОРОБКИ HOMMES","ЗАПНУЛАСЬ О КОРОБКИ HOMMES"]};
 function die(k){
   state="over";shake=.4;zp=1;sfx.hit();stopMusic();evt=null;
-  const sc=score();isRecord=sc>best;if(isRecord){best=sc;store.set("hommes_best",best)}
+  const sc=score();isRecord=sc>best;if(isRecord){best=sc;store.set("hommes_best_after_reset",best)}
   $("tapHint").hidden=true;$("rankLine").textContent="";$("combo").hidden=true;
   const F=curGender()==="f",snap={sc,m:Math.floor(meters),dur:Math.max(1,Math.round(runT)),jumps:nJump,slides:nSlide,nCoin,nCash,shift:ENV.i,why:(REASONS[k]||["",""])[F?1:0],shot:snapGame()};lastRun=snap;
   activeRun.finishedAt = wallNow();
@@ -1784,13 +1784,13 @@ const dbReady=(async()=>{try{
 }catch(e){db=null;myId=null}})();
 /* сезоны: 20 дней от 3 ноября 2026, 00:00 по Екатеринбургу (UTC+5) */
 const SEASON_START=Date.UTC(2026,10,2,19,0,0),SEASON_LEN=20*864e5;
-function seasonNow(){return Math.max(1,Math.floor((wallNow()-SEASON_START)/SEASON_LEN)+1)}
-function seasonEnds(n){return SEASON_START+(n||seasonNow())*SEASON_LEN}
+function seasonNow(){return Math.max(2,Math.floor((wallNow()-SEASON_START)/SEASON_LEN)+2)}
+function seasonEnds(n){return SEASON_START+((n||seasonNow())-1)*SEASON_LEN}
 function fmtDate(t){const d=new Date(t+5*36e5);return String(d.getUTCDate()).padStart(2,"0")+"."+String(d.getUTCMonth()+1).padStart(2,"0")}
 function daysWord(n){const a=n%10,b=n%100;return a===1&&b!==11?"день":a>=2&&a<=4&&(b<12||b>14)?"дня":"дней"}
 function seasonText(){const S=seasonNow(),left=seasonEnds(S)-wallNow();
-  if(left<864e5){const h=Math.max(1,Math.ceil(left/36e5));return "СЕЗОН "+S+" · ПОДВЕДЕНИЕ ИТОГОВ ЧЕРЕЗ "+h+" Ч"}
-  const d=Math.ceil(left/864e5);return "СЕЗОН "+S+" · ПОДВЕДЕНИЕ ИТОГОВ ЧЕРЕЗ "+d+" "+daysWord(d).toUpperCase()+" ("+fmtDate(seasonEnds(S))+")"}
+  if(left<864e5){const h=Math.max(1,Math.ceil(left/36e5));return "СЕЗОН "+(S-1)+" · ПОДВЕДЕНИЕ ИТОГОВ ЧЕРЕЗ "+h+" Ч"}
+  const d=Math.ceil(left/864e5);return "СЕЗОН "+(S-1)+" · ПОДВЕДЕНИЕ ИТОГОВ ЧЕРЕЗ "+d+" "+daysWord(d).toUpperCase()+" ("+fmtDate(seasonEnds(S))+")"}
 // порядок в таблице: больше очков; при равенстве — больше метров; дальше — кто раньше набрал
 function rankCmp(x,y){return (y.score-x.score)||(y.m-x.m)||((x.at||9e15)-(y.at||9e15))||String(x.id).localeCompare(String(y.id))}
 const ARCHIVE_FIELDS = ["season","score","name","meters","at","dur","jumps","slides","runStart","endAt"];
@@ -1800,7 +1800,7 @@ function carryScoreFields(record, old) {
   for (const field of ARCHIVE_FIELDS) {
     const archived = "prev" + field[0].toUpperCase() + field.slice(1);
     const value = old[sameSeason ? archived : field];
-    if (old.season > 0 && value != null) record[archived] = value;
+    if (old.season > 1 && value != null) record[archived] = value;
   }
   for (const field of ["claimSeason", "claimAt"]) {
     if (old[field] != null) record[field] = old[field];
@@ -1876,9 +1876,9 @@ async function submitScore(s, run) {
     else if (saved.pending) setStatus("Результат отправлен на проверку и пока не участвует в рейтинге.");
     else if (saved.written) {
       delete lbCache[run.season];
-      setStatus("Новый лучший результат сезона " + run.season + " сохранён в таблице.");
+      setStatus("Новый лучший результат сезона " + (run.season - 1) + " сохранён в таблице.");
     } else if (saved.bestScore > 0) {
-      setStatus("Твой лучший результат в сезоне " + run.season + ": " + saved.bestScore + ".");
+      setStatus("Твой лучший результат в сезоне " + (run.season - 1) + ": " + saved.bestScore + ".");
     } else setStatus("Набери хотя бы одно очко, чтобы попасть в таблицу.");
   } catch (error) {
     const message = error?.code === "permission-denied"
@@ -1923,11 +1923,11 @@ function openLeaders(tab){
     return;
   }
   const P=S-1;
-  if(P<1){clearTimeout(lbTimer);note.textContent="Это первый сезон. Итоги появятся здесь после "+fmtDate(seasonEnds(S))+".";return}
+  if(P<2){clearTimeout(lbTimer);note.textContent="Это первый сезон. Итоги появятся здесь после "+fmtDate(seasonEnds(S))+".";return}
   pastRows(P).then(rows=>{
     clearTimeout(lbTimer);if(lbTab!=="prev")return;
     renderBoard(rows);
-    note.textContent=rows.length?"Итоги сезона "+P+" ("+fmtDate(SEASON_START+(P-1)*SEASON_LEN)+"–"+fmtDate(seasonEnds(P)-1)+"). Топ-5 получают призы.":"В сезоне "+P+" никто не играл.";
+    note.textContent=rows.length?"Итоги сезона "+(P-1)+" ("+fmtDate(SEASON_START+(P-2)*SEASON_LEN)+"–"+fmtDate(seasonEnds(P)-1)+"). Топ-5 получают призы.":"В сезоне "+(P-1)+" никто не играл.";
     myPrize(rows).then(renderPrize);
   }).catch(fail);
 }
@@ -1936,7 +1936,7 @@ const PRIZES=["СТРИЖКА БЕСПЛАТНО","−50% НА СТРИЖКУ","
 const PIN_HASH="53a38e1720a163fdc0b540f484bb43aabd830f9952f64ef6a2bbf6cfc3812f6f";
 let pinFails=0,pinLockUntil=0,prizeClock=null;
 const TOP_N=20,lbCache={};
-const rankTime = (season, end, fallback) => season >= 2 && end?.toMillis ? end.toMillis() : Number(fallback) || 0;
+const rankTime = (season, end, fallback) => season >= 3 && end?.toMillis ? end.toMillis() : Number(fallback) || 0;
 function curRow(id,v){return{id,name:v.name,score:Number(v.score)||0,m:Number(v.meters)||0,at:rankTime(v.season,v.endAt,v.at),sub:(Number(v.meters)||0)+" м · "+(Number(v.coins)||0)+" монет · "+(Number(v.cash)||0)+" пачек"}}
 async function topRows(S){
   const c=lbCache[S];if(c&&wallNow()-c.t<60000)return c.rows;
@@ -1957,7 +1957,7 @@ async function countAbove(S,sc){
   try{const q=await db.collection("scores").where("season","==",S).where("score",">",Math.floor(sc)).orderBy("score","desc").limit(100).get();return q.size>=100?null:q.size}catch(e){return null}
 }
 async function pastRows(P){
-  const ck="hommes_past_"+P;try{const c=JSON.parse(localStorage.getItem(ck)||"null");if(c&&wallNow()-c.t<600000&&Array.isArray(c.rows))return c.rows}catch(e){}
+  const ck="hommes_past_after_reset_"+P;try{const c=JSON.parse(localStorage.getItem(ck)||"null");if(c&&wallNow()-c.t<600000&&Array.isArray(c.rows))return c.rows}catch(e){}
   const col=db.collection("scores");
   const [a,b]=await Promise.all([col.where("season","==",P).orderBy("score","desc").limit(15).get(),col.where("prevSeason","==",P).orderBy("prevScore","desc").limit(15).get()]);
   const m=new Map();
@@ -1976,7 +1976,7 @@ const claimRef=(P,uid)=>db.collection("claims").doc(P+"_"+uid);
 async function claimInfo(P,uid){try{const c=await claimRef(P,uid).get();if(c.exists){const v=c.data()||{};return{claimed:true,at:Number(v.at)||0}}}catch(e){}return{claimed:false,at:0}}
 async function myPrize(rows){
   if(!db||!myId)return null;
-  const P=seasonNow()-1;if(P<1)return null;
+  const P=seasonNow()-1;if(P<2)return null;
   if(!rows)rows=await pastRows(P);
   const idx=rows.findIndex(r=>r.id===myId);if(idx<0||idx>4)return null;
   let data={};try{const sn=await db.collection("scores").doc(myId).get();if(sn.exists)data=sn.data()||{}}catch(e){}
@@ -2049,7 +2049,7 @@ function renderAdmin(){
     ok.onclick=go;inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")go()};return;
   }
   const P=seasonNow()-1;
-  if(P<1){box.append(el("p",null,"Это первый сезон. Призы появятся после "+fmtDate(seasonEnds(1))+"."));return}
+  if(P<2){box.append(el("p",null,"Это первый сезон. Призы появятся после "+fmtDate(seasonEnds(2))+"."));return}
   const lab=el("label",null,"КОД ПРИЗА ИЗ ИГРЫ КЛИЕНТА"),inp=el("input");inp.type="text";inp.maxLength=7;inp.autocomplete="off";inp.placeholder="XXX-XXX";
   const ok=el("button","btn","ПРОВЕРИТЬ");ok.type="button";const out=el("div");box.append(lab,inp,ok,out);inp.focus();
   const norm=v=>v.toUpperCase().replace(/[^A-Z0-9]/g,"");
@@ -2058,7 +2058,7 @@ function renderAdmin(){
     ok.disabled=true;
     try{
       const rows=(await pastRows(P)).slice(0,5);const i=rows.findIndex(r=>norm(prizeCode(r.id,P))===want);
-      if(i<0){out.append(el("p","err","Такого кода нет среди победителей сезона "+P+". Проверь, правильно ли записан код."));ok.disabled=false;return}
+      if(i<0){out.append(el("p","err","Такого кода нет среди победителей сезона "+(P-1)+". Проверь, правильно ли записан код."));ok.disabled=false;return}
       const r=rows[i],until=seasonEnds(P)+CLAIM_DAYS*864e5;
       let claimed=(await claimInfo(P,r.id));
       if(!claimed.claimed){try{const sn=await db.collection("scores").doc(r.id).get();const d=sn.exists?sn.data()||{}:{};if(Number(d.claimSeason)===P)claimed={claimed:true,at:Number(d.claimAt)||0}}catch(e){}}
